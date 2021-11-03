@@ -1,0 +1,35 @@
+{
+  "name": "radiyo",
+  "version": "0.0.1",
+  "description": "A Discord Bot to play internet radio streams",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run tsc && node dist/index.js",
+    "dev": "npm run tsc && node --inspect --enable-source-maps dist/index.js",
+    "deploy-commands": "npm run tsc && node dist/deploy-commands.js",
+    "tsc": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Isiah Lloyd",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node-fetch": "^2.5.12",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
+    "@typescript-eslint/parser": "^4.33.0",
+    "eslint": "^7.32.0",
+    "typescript": "^4.4.3"
+  },
+  "dependencies": {
+    "@discordjs/builders": "^0.6.0",
+    "@discordjs/opus": "^0.5.3",
+    "@discordjs/rest": "^0.1.0-canary.0",
+    "@discordjs/voice": "^0.6.0",
+    "discord-api-types": "^0.23.1",
+    "discord.js": "^13.2.0",
+    "dotenv": "^10.0.0",
+    "fast-xml-parser": "^3.20.3",
+    "html-entities": "^2.3.2",
+    "node-fetch": "^2.6.2",
+    "sodium": "^3.0.2"
+  }
+}

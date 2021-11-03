@@ -1,0 +1,136 @@
+import { AudioPlayer, AudioResource, createAudioPlayer, createAudioResource, NoSubscriberBehavior } from '@discordjs/voice';
+//import xmlParse from 'fast-xml-parser';
+import fetch, { Headers } from 'node-fetch';
+import events from 'events';
+
+//import STATIC_STATIONS from './static_stations.json';
+import { NowPlaying, PlaylistAPIResponse, Station } from './util/interfaces';
+import { SpliceMetadata } from './util/SpliceMetadata';
+import RadiYo from './RadiYo';
+
+export class RadioPlayer extends events.EventEmitter {
+    public NOW_PLAYING: NowPlaying = {} as NowPlaying;
+    public CURRENT_STATION: Station = {} as Station;
+    public PLAYER: AudioPlayer;
+    public onMetadataChange: events.EventEmitter = new events.EventEmitter();
+    constructor() {
+        super();
+        this.PLAYER = createAudioPlayer({
+            behaviors: {
+                noSubscriber: NoSubscriberBehavior.Stop,
+            },
+        });
+    }
+
+    public async play(station: Station): Promise<void> {
+        const audioStream = await fetch(station.streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+        const metaInt = audioStream.headers.get('icy-metaint');
+        let resource: AudioResource;
+        if(metaInt) {
+            const spliceMetadata = new SpliceMetadata(parseInt(metaInt), this.updateCurrentPlaying.bind(this));
+            audioStream.body.pipe(spliceMetadata);
+            resource = createAudioResource(spliceMetadata);
+        }
+        else {
+            resource = createAudioResource(station.streamDownloadURL);
+        }
+        this.PLAYER.play(resource);
+        //this.PLAYER.on('error', err => { this.emit('error', err); });
+        this.PLAYER.on('error', (error) => {console.error(error.message);});
+        this.PLAYER;
+        this.PLAYER.on('stateChange', (oldstate, newstate)  => {console.debug(`State changed for ${station.text} from ${oldstate.status} to ${newstate.status}`);});
+    }
+    private async getAlbumArt(search: NowPlaying): Promise<NowPlaying> {
+        const searchString: string = encodeURIComponent(`${search.artist} ${search.title}`);
+        const searchResult = await fetch(`https://itunes.apple.com/search?term=${searchString}`);
+        const result = await searchResult.json();
+        search.albumArtUrl = result.results[0]?.artworkUrl100 ? result.results[0].artworkUrl100 : '';
+        return search;
+    }
+    private async updateCurrentPlaying(song: NowPlaying | string): Promise<void> {
+        if(typeof song !== 'string') {
+            song = await this.getAlbumArt(song);
+        }
+        this.emit('metadataChange', song);
+    }
+
+    /*     private static async oldsearch(query: string): Promise<Station> {
+        //TODO: This section could do with some better error handling
+        let chosenStation: Station = {} as Station;
+        const staticSearch = STATIC_STATIONS.find((station) => {
+            return station.text.toLowerCase().replace(/\s/g, '') === query.toLowerCase().replace(/\s/g, '');
+        });
+        if(staticSearch) {
+            return staticSearch as Station;
+        }
+        const searchResultRaw = await fetch(`https://opml.radiotime.com/Search.ashx?query=${query}`);
+        const searchResultsText = await searchResultRaw.text();
+        const searchResult = xmlParse.parse(searchResultsText, {ignoreAttributes: false, attributeNamePrefix: ''})['opml'];
+        if(searchResult.head.status === 200) {
+            for(let i = 0; i < searchResult.body.outline.length; i++) {
+                const result = searchResult.body.outline[i];
+                if(result.type === 'audio' && result.item === 'station') {
+                    chosenStation = result;
+                    break;
+                }
+            }
+        }
+        //Search results return a m3u file, which is a
+        //playlist text file with each new line being a 
+        //potential stream URL or another m3u file (inception)
+        const m3uResponse = await fetch(chosenStation.URL);
+        let m3uText: string = await m3uResponse.text();
+        m3uText = m3uText.trimEnd();
+        const potentialStreams: string[] = m3uText.split('\n');
+        for(let i = 0; i < potentialStreams.length; i++) {
+            const stream: string = potentialStreams[i];
+            const fileExt = stream.substring(stream.length - 3);
+            if(fileExt !== '.m3u' && fileExt !== 'pls') {
+                //TODO: Handle m3u inceptions and making sure a quality stream is chosen (maybe?)
+                chosenStation.streamDownloadURL = stream;
+                break;
+            }
+        }
+        return chosenStation;
+    } */
+    static async search(query: string): Promise<Station[] | null> {
+        const stations: Station[] = [];
+        
+        /*         const staticSearch = STATIC_STATIONS.find((station) => {
+            return station.text.toLowerCase().replace(/\s/g, '') === query.toLowerCase().replace(/\s/g, '');
+        });
+        if(staticSearch) {
+            return staticSearch as Station;
+        } */
+        const playlistResults = await(await fetch(`http://api.dar.fm/playlist.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&q=${encodeURIComponent(query)}`)).json() as PlaylistAPIResponse;
+        if(playlistResults.success) {
+
+            for(const result of playlistResults.result){
+                const station: Station = {} as Station;
+                const stationId = result.station_id;
+                station.text = result.callsign;
+                //const streamingURLResult = await(await fetch(`http://api.dar.fm/uberstationurl.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&station_id=${stationId}`)).json();
+                const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&station_id=${stationId}`)).json();
+                station.streamDownloadURL = `http://stream.dar.fm/${stationId}`;
+                const stationInfo = stationInfoResult.result[0].stations[0];
+                station.image = stationInfo.station_image;
+                station.subtext = stationInfo.slogan ? stationInfo.slogan : stationInfo.description;
+                station.genre = stationInfo.genre;
+                stations.push(station);
+            }
+            return stations;
+        }
+        else {
+            return null;
+        }
+    }
+    static async searchOne(query: string): Promise<Station | null> {
+        const search = await RadioPlayer.search(query);
+        if(search) {
+            return search[0];
+        }
+        else {
+            return null;
+        }
+    }
+}
