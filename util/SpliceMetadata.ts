@@ -18,8 +18,19 @@ export class SpliceMetadata extends Transform {
          * @param raw Metadata coming straight from the buffer 
          */
         private extractSongTitle(raw: string): NowPlaying | string | null {
+            console.log(raw);
             const np: NowPlaying = {} as NowPlaying;
             const rawProc : string = raw.split('StreamTitle=\'')[1].split('\';')[0];
+            if(rawProc.includes('adContext=')) {
+                return 'Advertisement';
+            }
+            if(rawProc.includes('song_spot')) {
+                // we are in iheartmedia land :(
+                const split = rawProc.split(' - text="');
+                np.artist = split[0];
+                np.title = split[1].split('"')[0];
+                return np;
+            }
             const numOfDash = rawProc.replace(/[^-]/g, '').length;
             // If there's more than one dash, we don't know if its part of the song title
             // or splitting the artist and song, so lets just return a string and be easy 
