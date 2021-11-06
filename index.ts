@@ -9,16 +9,17 @@ const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_V
 client.on('interactionCreate', async interaction => {
     if(!interaction.guild || !interaction.channel) {
         console.debug('Could not find guild or channel.');
+        interaction.user.send('This bot will not work in DMs');
         return;
     }
     if(interaction.isCommand()) {
         if(interaction.commandName === 'radio') {
             let vm: VoiceManager | null;
             if(interaction.options.getSubcommand() === 'play') {
-                interaction.deferReply();
                 const gm: GuildMember | undefined = await interaction.guild.members.cache.get(interaction.user.id);
                 const searchQuery = interaction.options.getString('query');
                 if(gm?.voice.channel && gm.voice.channel instanceof VoiceChannel && searchQuery) {
+                    interaction.deferReply();
                     vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, gm.voice.channel);
                     const station = await RadioPlayer.searchOne(searchQuery);
                     if(station && station.streamDownloadURL) {
@@ -30,7 +31,7 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
                 else {
-                    interaction.editReply('You must be in a voice channel to play the radio!');
+                    interaction.reply('You must be in a voice channel to play the radio!');
                 }
             }
             else if(interaction.options.getSubcommand() === 'search') {
