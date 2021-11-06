@@ -66,7 +66,8 @@ export class VoiceManager {
         return RadiYo.newMsgEmbed()
             .setTitle(`Now Playing ${this.STATION.text} in #${this.VOICE_CHANNEL.name}`)
             .setDescription(htmlDecode(this.STATION.subtext))
-            .setThumbnail(this.STATION.image);
+            .setThumbnail(this.STATION.image)
+            .setFields({name: 'Genre', value: this.STATION.genre});
     }
     private playerUnsubscribe() {
         this.RADIO_PLAYER?.removeListener('metadataChange', this.boundMetadataFn);
