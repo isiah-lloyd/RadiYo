@@ -12,8 +12,8 @@ const commands: unknown = [
             return new SlashCommandSubcommandBuilder().setName('play')  
                 .setDescription('Play a radio station')      
                 .addStringOption(option => {
-                    return option.setName('station')
-                        .setDescription('Radio station to play')
+                    return option.setName('query')
+                        .setDescription('Play a station from an artist or station name')
                         .setRequired(true);
                 });
         })
@@ -40,12 +40,17 @@ const rest = new REST({ version: '9' }).setToken(RadiYo.DISCORD_TOKEN);
 (async () => {
     try {
         console.log('Started deploying slash commands.');
-
-        await rest.put(
-            Routes.applicationGuildCommands(RadiYo.DISCORD_OAUTH_CLIENT_ID, RadiYo.DISCORD_GUILD_ID),
-            { body: commands },
-        );
-
+        if(process.argv[2] === '--global') {
+            console.log('Deploying commands globally');
+            await rest.put(Routes.applicationCommands(RadiYo.DISCORD_OAUTH_CLIENT_ID), {body: commands});
+        }
+        else {
+            console.log('Deploying commands to guild');
+            await rest.put(
+                Routes.applicationGuildCommands(RadiYo.DISCORD_OAUTH_CLIENT_ID, RadiYo.DISCORD_GUILD_ID),
+                { body: commands },
+            );
+        }
         console.log('Successfully deployed slash commands.');
     } catch (error) {
         console.error(error);
