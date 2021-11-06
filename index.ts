@@ -7,28 +7,30 @@ import { RadioPlayer } from './RadioPlayer';
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES]});
 //TODO: This station spammed metadata changes, investigate "Positively The Biggest Hits From The 00's"
 client.on('interactionCreate', async interaction => {
+    if(!interaction.guild || !interaction.channel) {
+        console.debug('Could not find guild or channel.');
+        return;
+    }
     if(interaction.isCommand()) {
         if(interaction.commandName === 'radio') {
-            if(!interaction.guild || !interaction.channel) {
-                throw new Error('Could not retrieve guild or channel');
-            }
             let vm: VoiceManager | null;
             if(interaction.options.getSubcommand() === 'play') {
+                interaction.deferReply();
                 const gm: GuildMember | undefined = await interaction.guild.members.cache.get(interaction.user.id);
-                const searchQuery = interaction.options.getString('station');
+                const searchQuery = interaction.options.getString('query');
                 if(gm?.voice.channel && gm.voice.channel instanceof VoiceChannel && searchQuery) {
                     vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, gm.voice.channel);
                     const station = await RadioPlayer.searchOne(searchQuery);
                     if(station && station.streamDownloadURL) {
                         vm.attachPlayer(station);
-                        interaction.reply({embeds: [vm.getCurrentStationEmbed()]});
+                        interaction.editReply({embeds: [vm.getCurrentStationEmbed()]});
                     }
                     else {
-                        interaction.reply(`Could not find station: ${searchQuery}`);
+                        interaction.editReply(`Could not find station: ${searchQuery}`);
                     }
                 }
                 else {
-                    interaction.reply('You must be in a voice channel to play the radio!');
+                    interaction.editReply('You must be in a voice channel to play the radio!');
                 }
             }
             else if(interaction.options.getSubcommand() === 'search') {
@@ -80,7 +82,12 @@ client.on('interactionCreate', async interaction => {
         }
     }
     else if(interaction.isButton()) {
-        console.log('STub');
+        const vm = RadiYo.getVoiceManager(interaction.guild);
+        if(interaction.customId === 'stop_stream') {
+            interaction.reply('Stopping stream!');
+            vm?.leaveVoiceChannel();
+            
+        }
     }
 });
 client.on('voiceStateUpdate', (_, newState) => {

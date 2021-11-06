@@ -4,7 +4,6 @@ export interface NowPlaying {
     albumArtUrl: string;
 }
 export interface Station {
-    bitrate: any;
     image: string;
     subtext: string;
     //title of station
@@ -19,6 +18,7 @@ export interface Station {
 interface PlaylistAPIResponseArray {
     callsign: string;
     station_id: string;
+    band: string;
 }
 export interface PlaylistAPIResponse {
     success: boolean;
