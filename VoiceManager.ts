@@ -1,5 +1,5 @@
 import { AudioPlayerError, DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, PlayerSubscription, VoiceConnection } from '@discordjs/voice';
-import { Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, VoiceChannel } from 'discord.js';
+import { EmbedFieldData, Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, VoiceChannel } from 'discord.js';
 import RadiYo from './RadiYo';
 import { NowPlaying, Station } from './util/interfaces';
 import {decode as htmlDecode} from 'html-entities';
@@ -14,7 +14,7 @@ export class VoiceManager {
     private msg_fifo: Message[] = [];
     private RADIO_PLAYER: RadioPlayer | null = null;
     private boundMetadataFn = this.sendMetadataChange.bind(this);
-    
+    private last_msg: MessageEmbed | null = null;
     constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
@@ -67,9 +67,10 @@ export class VoiceManager {
             .setTitle(`Now Playing ${this.STATION.text} in #${this.VOICE_CHANNEL.name}`)
             .setDescription(htmlDecode(this.STATION.subtext))
             .setThumbnail(this.STATION.image)
-            .setFields({name: 'Genre', value: this.STATION.genre});
+            .setFields({name: 'Genre', value: this.STATION.genre})
+            .setFooter('Search powered by DAR.fm');
     }
-    private playerUnsubscribe() {
+    private playerUnsubscribe(): void {
         this.RADIO_PLAYER?.removeListener('metadataChange', this.boundMetadataFn);
         this.RADIO_PLAYER?.removeListener('error', this.audioPlayerError);
         if(this.PLAYER_SUBSCRIPTION instanceof PlayerSubscription) {
@@ -78,22 +79,26 @@ export class VoiceManager {
             this.PLAYER_SUBSCRIPTION = null;
         }
     }
-    private audioPlayerError(error: AudioPlayerError) {
+    private audioPlayerError(error: AudioPlayerError): void {
         this.NOTIFICATION_CHANNEL.send(`There was an error while playing ${this.STATION.text}. Error: ${error.message}`);
         this.leaveVoiceChannel();
     }
-    private async sendMetadataChange(song: NowPlaying | string) {
+    private async sendMetadataChange(song: NowPlaying | string): Promise<void> {
         //todo: check if metadata is empty before sending
         if(song !== null) {
             let responseMessage: MessageEmbed;
             if(typeof song !== 'string') {
+                const fields: EmbedFieldData[] = [];
+                if(this.last_msg?.fields[1] && this.last_msg?.fields[1].value == song.title) return;
+                if(song.artist) fields.push({name: 'Artist', value: song.artist});
+                if(song.title) fields.push({name: 'Song', value: song.title});
                 responseMessage = RadiYo.newMsgEmbed()
                     .setTitle('Now Playing')
                     .setThumbnail(song.albumArtUrl)
-                    .addFields({name: 'Artist', value: song.artist}, 
-                        {name: 'Song', value: song.title});
+                    .addFields(fields);
             }
             else {
+                if(this.last_msg?.description == song) return;
                 responseMessage = RadiYo.newMsgEmbed()
                     .setTitle('Now Playing')
                     .setDescription(song);
@@ -104,7 +109,8 @@ export class VoiceManager {
                     .setLabel('Stop')
                     .setStyle('DANGER')
             );
-            this.msg_fifo.push(await this.NOTIFICATION_CHANNEL.send({embeds: [responseMessage], components: [row]}));  
+            this.last_msg = responseMessage;
+            this.msg_fifo.push(await this.NOTIFICATION_CHANNEL.send({embeds: [responseMessage], components: [row]}));
         }
         if(this.msg_fifo.length > 1) {
             const previousMsg = this.msg_fifo[this.msg_fifo.length - 2];
