@@ -63,8 +63,7 @@ export class VoiceManager {
         return getVoiceConnection(this.GUILD.id);
     }
     public getCurrentStationEmbed(): MessageEmbed {
-        return new MessageEmbed()
-            .setAuthor('RadiYo!')
+        return RadiYo.newMsgEmbed()
             .setTitle(`Now Playing ${this.STATION.text} in #${this.VOICE_CHANNEL.name}`)
             .setDescription(htmlDecode(this.STATION.subtext))
             .setThumbnail(this.STATION.image);
@@ -87,16 +86,14 @@ export class VoiceManager {
         if(song !== null) {
             let responseMessage: MessageEmbed;
             if(typeof song !== 'string') {
-                responseMessage = new MessageEmbed()
-                    .setAuthor('RadiYo!')
+                responseMessage = RadiYo.newMsgEmbed()
                     .setTitle('Now Playing')
                     .setThumbnail(song.albumArtUrl)
                     .addFields({name: 'Artist', value: song.artist}, 
                         {name: 'Song', value: song.title});
             }
             else {
-                responseMessage = new MessageEmbed()
-                    .setAuthor('RadiYo!')
+                responseMessage = RadiYo.newMsgEmbed()
                     .setTitle('Now Playing')
                     .setDescription(song);
             }

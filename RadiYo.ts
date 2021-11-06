@@ -1,4 +1,4 @@
-import { Guild, TextBasedChannels, VoiceChannel } from 'discord.js';
+import { Guild, MessageEmbed, TextBasedChannels, VoiceChannel } from 'discord.js';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
 import { Station } from './util/interfaces';
@@ -58,6 +58,12 @@ class RadiYo {
         const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
         console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
         return v;
+    }
+    public newMsgEmbed() : MessageEmbed {
+        return new MessageEmbed()
+            .setAuthor('RadiYo!', 
+                'https://cdn.discordapp.com/avatars/895354013116153876/90d756ddeab4c129d89b9f60df44ba95.png?size=32',
+                'https://github.com/isiah-lloyd/RadiYo');
     }
 }
 
