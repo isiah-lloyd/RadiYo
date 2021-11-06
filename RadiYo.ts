@@ -11,7 +11,7 @@ class RadiYo {
     readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY'); 
 
     private VOICE_MANAGERS: Map<string, VoiceManager> = new Map();
-    public RADIO_PLAYERS: Map<Station, RadioPlayer> = new Map();
+    public RADIO_PLAYERS: Map<string, RadioPlayer> = new Map();
 
     private getEnv(envVar: string): string {
         const p = process.env[envVar];
@@ -34,25 +34,30 @@ class RadiYo {
         else {
             const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
             this.VOICE_MANAGERS.set(guild.id, newVm);
+            console.debug(`There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);   
             return newVm;
         }
     }
     public deleteVoiceManager(guildId: string): boolean {
-        return this.VOICE_MANAGERS.delete(guildId);
+        const v = this.VOICE_MANAGERS.delete(guildId);
+        console.debug(`There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);   
+        return v;
     }
     public getRadioPlayer(station: Station): RadioPlayer {
-        let rp = this.RADIO_PLAYERS.get(station);
-        if(rp) {
-            return rp;
-        }
-        else {
+        let rp = this.RADIO_PLAYERS.get(station.streamDownloadURL);
+        if(!rp) {
             rp = new RadioPlayer();
             rp.play(station);
-            return rp;
+            this.RADIO_PLAYERS.set(station.streamDownloadURL, rp);
         }
+        console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
+        return rp;
     }
     public deleteRadioPlayer(station: Station): boolean {
-        return this.RADIO_PLAYERS.delete(station);
+        //TODO: Actually implement this
+        const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
+        console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
+        return v;
     }
 }
 

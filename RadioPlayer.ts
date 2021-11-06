@@ -12,7 +12,6 @@ export class RadioPlayer extends events.EventEmitter {
     public NOW_PLAYING: NowPlaying = {} as NowPlaying;
     public CURRENT_STATION: Station = {} as Station;
     public PLAYER: AudioPlayer;
-    public onMetadataChange: events.EventEmitter = new events.EventEmitter();
     constructor() {
         super();
         this.PLAYER = createAudioPlayer({
@@ -37,8 +36,15 @@ export class RadioPlayer extends events.EventEmitter {
         this.PLAYER.play(resource);
         //this.PLAYER.on('error', err => { this.emit('error', err); });
         this.PLAYER.on('error', (error) => {console.error(error.message);});
-        this.PLAYER;
-        this.PLAYER.on('stateChange', (oldstate, newstate)  => {console.debug(`State changed for ${station.text} from ${oldstate.status} to ${newstate.status}`);});
+        this.PLAYER.on('stateChange', (oldState, newState)  => {console.debug(`State changed for ${station.text} from ${oldState.status} to ${newState.status}`);});
+        this.PLAYER.on('unsubscribe', () => {
+            console.debug('A VoiceConnection unsubscribed from a player');
+            console.debug('Current subscribers: ', this.listenerCount('metadataChange')); 
+            if(this.listenerCount('metadataChange') == 0) {
+                this.PLAYER.stop();
+                RadiYo.deleteRadioPlayer(station);
+            }
+        });
     }
     private async getAlbumArt(search: NowPlaying): Promise<NowPlaying> {
         const searchString: string = encodeURIComponent(`${search.artist} ${search.title}`);
@@ -54,7 +60,7 @@ export class RadioPlayer extends events.EventEmitter {
         this.emit('metadataChange', song);
     }
 
-    /*     private static async oldsearch(query: string): Promise<Station> {
+    /*     private static async oldSearch(query: string): Promise<Station> {
         //TODO: This section could do with some better error handling
         let chosenStation: Station = {} as Station;
         const staticSearch = STATIC_STATIONS.find((station) => {
@@ -93,7 +99,7 @@ export class RadioPlayer extends events.EventEmitter {
         }
         return chosenStation;
     } */
-    static async search(query: string): Promise<Station[] | null> {
+    static async search(query: string, limit : number | null = null): Promise<Station[] | null> {
         const stations: Station[] = [];
         
         /*         const staticSearch = STATIC_STATIONS.find((station) => {
@@ -102,15 +108,17 @@ export class RadioPlayer extends events.EventEmitter {
         if(staticSearch) {
             return staticSearch as Station;
         } */
-        const playlistResults = await(await fetch(`http://api.dar.fm/playlist.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&q=${encodeURIComponent(query)}`)).json() as PlaylistAPIResponse;
+        const playlistResults = await(await fetch(`http://api.dar.fm/playlist.php?callback=json${limit ? `&pagesize=${limit}` : ''}&q=${encodeURIComponent(query)}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as PlaylistAPIResponse;
         if(playlistResults.success) {
-
-            for(const result of playlistResults.result){
+            const results = playlistResults.result.filter((el) => {
+                return el.band === 'NET' || el.band === 'FM';
+            });
+            for(const result of results){
                 const station: Station = {} as Station;
                 const stationId = result.station_id;
                 station.text = result.callsign;
                 //const streamingURLResult = await(await fetch(`http://api.dar.fm/uberstationurl.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&station_id=${stationId}`)).json();
-                const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&station_id=${stationId}`)).json();
+                const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&station_id=${stationId}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json();
                 station.streamDownloadURL = `http://stream.dar.fm/${stationId}`;
                 const stationInfo = stationInfoResult.result[0].stations[0];
                 station.image = stationInfo.station_image;
@@ -125,7 +133,7 @@ export class RadioPlayer extends events.EventEmitter {
         }
     }
     static async searchOne(query: string): Promise<Station | null> {
-        const search = await RadioPlayer.search(query);
+        const search = await RadioPlayer.search(query, 2);
         if(search) {
             return search[0];
         }
