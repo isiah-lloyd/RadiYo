@@ -20,9 +20,9 @@ client.on('interactionCreate', async interaction => {
                 const searchQuery = interaction.options.getString('query');
                 if(gm?.voice.channel && gm.voice.channel instanceof VoiceChannel && searchQuery) {
                     interaction.deferReply();
-                    vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, gm.voice.channel);
                     const station = await RadioPlayer.searchOne(searchQuery);
                     if(station && station.streamDownloadURL) {
+                        vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, gm.voice.channel);
                         vm.attachPlayer(station);
                         interaction.editReply({embeds: [vm.getCurrentStationEmbed()]});
                     }
