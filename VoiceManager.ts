@@ -90,8 +90,8 @@ export class VoiceManager {
             if(typeof song !== 'string') {
                 const fields: EmbedFieldData[] = [];
                 if(this.last_msg?.fields[1] && this.last_msg?.fields[1].value == song.title) return;
-                if(song.artist) fields.push({name: 'Artist', value: song.artist});
-                if(song.title) fields.push({name: 'Song', value: song.title});
+                if(song.artist !== '') fields.push({name: 'Artist', value: song.artist});
+                if(song.title !== '') fields.push({name: 'Song', value: song.title});
                 responseMessage = RadiYo.newMsgEmbed()
                     .setTitle('Now Playing')
                     .setThumbnail(song.albumArtUrl)
