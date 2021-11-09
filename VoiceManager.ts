@@ -55,9 +55,11 @@ export class VoiceManager {
         this.getVoiceConnection()?.destroy();
         RadiYo.deleteVoiceManager(this.GUILD.id);
         const lastMsg = this.msg_fifo[this.msg_fifo.length -1];
-        const responseMessage = new MessageEmbed(lastMsg.embeds[0])
-            .setTitle('Previously Played');
-        lastMsg.edit({embeds: [responseMessage], components: []}); 
+        if(lastMsg) {
+            const responseMessage = new MessageEmbed(lastMsg.embeds[0])
+                .setTitle('Previously Played');
+            lastMsg.edit({embeds: [responseMessage], components: []});
+        } 
     }
     public getVoiceConnection() : VoiceConnection | undefined {
         return getVoiceConnection(this.GUILD.id);
