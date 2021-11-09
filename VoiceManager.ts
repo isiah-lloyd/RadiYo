@@ -70,7 +70,7 @@ export class VoiceManager {
             .setDescription(htmlDecode(this.STATION.subtext))
             .setThumbnail(this.STATION.image)
             .setFields({name: 'Genre', value: this.STATION.genre})
-            .setFooter('Search powered by DAR.fm');
+            .setFooter('Search powered by onrad.io');
     }
     private playerUnsubscribe(): void {
         this.RADIO_PLAYER?.removeListener('metadataChange', this.boundMetadataFn);
