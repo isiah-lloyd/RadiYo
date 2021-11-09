@@ -111,7 +111,7 @@ export class RadioPlayer extends events.EventEmitter {
         const playlistResults = await(await fetch(`http://api.dar.fm/playlist.php?callback=json${limit ? `&pagesize=${limit}` : ''}&q=${encodeURIComponent(query)}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as PlaylistAPIResponse;
         if(playlistResults.success) {
             const results = playlistResults.result.filter((el) => {
-                return el.band === 'NET' || el.band === 'FM';
+                return el.band === 'NET' || el.band === 'FM' || el.band === 'AM';
             });
             for(const result of results){
                 const station: Station = {} as Station;
