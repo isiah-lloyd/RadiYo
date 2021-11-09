@@ -3,14 +3,15 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder } from '@discordjs/builders';
 import RadiYo from './RadiYo';
+import { ApplicationCommandPermissionData, Client, Intents } from 'discord.js';
 
 
-const commands: unknown = [ 
+const commands = [ 
     new SlashCommandBuilder().setName('radio')
         .setDescription('Play a radio station in voice channel')
         .addSubcommand(() => {
             return new SlashCommandSubcommandBuilder().setName('play')  
-                .setDescription('Play a radio station')      
+                .setDescription('Play a station from an artist or station name')      
                 .addStringOption(option => {
                     return option.setName('query')
                         .setDescription('Play a station from an artist or station name')
@@ -46,12 +47,29 @@ const rest = new REST({ version: '9' }).setToken(RadiYo.DISCORD_TOKEN);
         }
         else {
             console.log('Deploying commands to guild');
+            commands[0].default_permission = false;
             await rest.put(
                 Routes.applicationGuildCommands(RadiYo.DISCORD_OAUTH_CLIENT_ID, RadiYo.DISCORD_GUILD_ID),
                 { body: commands },
             );
+            console.log('Successfully deployed slash commands.');
+            const client = new Client({intents: [Intents.FLAGS.GUILDS]});
+            client.login();
+            client.on('ready', async () => {
+                const guild = await client.guilds.cache.get(RadiYo.DISCORD_GUILD_ID)?.fetch();
+                const cmds = await guild?.commands.fetch();
+                const perm: ApplicationCommandPermissionData = {
+                    id: '179705637649776640',
+                    type: 'USER',
+                    permission: true
+                };
+                cmds?.forEach((el) => {
+                    console.log(`Mod perms for ${el.name}`);
+                    el.permissions.add({permissions: [perm]});
+                });
+                process.exit(0);
+            });
         }
-        console.log('Successfully deployed slash commands.');
     } catch (error) {
         console.error(error);
     }
