@@ -23,7 +23,15 @@ client.on('interactionCreate', async interaction => {
                 const searchQuery = interaction.options.getString('query');
                 if(gm?.voice.channel && gm.voice.channel instanceof VoiceChannel && searchQuery) {
                     interaction.deferReply();
-                    const station = await RadioPlayer.searchOne(searchQuery);
+                    let station;
+                    try {
+                        station = await RadioPlayer.searchOne(searchQuery);
+                    }
+                    catch(err) {
+                        interaction.editReply('There was an error while searching for a station. Please try again later.');
+                        console.error(err);
+                        return;
+                    }
                     if(station && station.streamDownloadURL) {
                         vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, gm.voice.channel);
                         vm.attachPlayer(station);
