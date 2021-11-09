@@ -3,8 +3,11 @@ import { Client, GuildMember, Intents, MessageEmbed, VoiceChannel } from 'discor
 import RadiYo from './RadiYo';
 import { VoiceManager } from './VoiceManager';
 import { RadioPlayer } from './RadioPlayer';
+import { ActivityTypes } from 'discord.js/typings/enums';
 
-const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES]});
+const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES],
+    presence: {activities: [{name: 'the radio!', type: ActivityTypes.LISTENING}]}
+});
 //TODO: This station spammed metadata changes, investigate "Positively The Biggest Hits From The 00's"
 client.on('interactionCreate', async interaction => {
     if(!interaction.guild || !interaction.channel) {
