@@ -1,9 +1,9 @@
+import { Client, GuildMember, Intents, VoiceChannel } from 'discord.js';
+import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
-import { Client, GuildMember, Intents, MessageEmbed, VoiceChannel } from 'discord.js';
+import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
 import { VoiceManager } from './VoiceManager';
-import { RadioPlayer } from './RadioPlayer';
-import { ActivityTypes } from 'discord.js/typings/enums';
 
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES],
     presence: {activities: [{name: 'the radio!', type: ActivityTypes.LISTENING}]}
@@ -22,6 +22,10 @@ client.on('interactionCreate', async interaction => {
                 const gm: GuildMember | undefined = await interaction.guild.members.cache.get(interaction.user.id);
                 const searchQuery = interaction.options.getString('query');
                 if(gm?.voice.channel && gm.voice.channel instanceof VoiceChannel && searchQuery) {
+                    if(!gm.voice.channel.permissionsFor(RadiYo.getBotUser())?.has('CONNECT')) {
+                        interaction.reply(`I don't have permission to join ${gm.voice.channel}`);
+                        return;
+                    }
                     interaction.deferReply();
                     let station;
                     try {
@@ -45,11 +49,14 @@ client.on('interactionCreate', async interaction => {
                     interaction.reply('You must be in a voice channel to play the radio!');
                 }
             }
+            else if(interaction.options.getSubcommand() === 'browse') {
+                //TODO
+            }
             else if(interaction.options.getSubcommand() === 'search') {
                 interaction.deferReply({ephemeral: true});
                 const searchQuery = interaction.options.getString('query');
                 if(searchQuery) {
-                    const searchResults = await RadioPlayer.search(searchQuery);
+                    const searchResults = await RadioPlayer.search(searchQuery, 5);
                     const fields = [];
                     if(searchResults) {
                         for(let i = 0; i <= 5; i++) {
@@ -72,8 +79,7 @@ client.on('interactionCreate', async interaction => {
                                 fields.push(nameObj, descObj, genreObj);
                             }
                         }
-                        const responseMessage = new MessageEmbed()
-                            .setAuthor('RadiYo!')
+                        const responseMessage = RadiYo.newMsgEmbed()
                             .setTitle(`Search Results for ${searchQuery}`)
                             .addFields(fields);
                         interaction.editReply({embeds: [responseMessage]});
@@ -104,11 +110,34 @@ client.on('interactionCreate', async interaction => {
 });
 client.on('voiceStateUpdate', (_, newState) => {
     const vm = RadiYo.getVoiceManager(newState.guild);
-    if (vm && vm.VOICE_CHANNEL.members.size === 1) {
+    if (vm && vm.VOICE_CHANNEL.members.size === 1 && vm.VOICE_CHANNEL.members.has(RadiYo.getBotUser().id)) {
         vm.NOTIFICATION_CHANNEL.send(`I'm all alone! Leaving #${vm.VOICE_CHANNEL.name}`);
         vm.leaveVoiceChannel();
     } 
 
 });
+
 client.login(RadiYo.DISCORD_TOKEN);
+RadiYo.CLIENT = client;
 console.log('Logged in!');
+
+function exitHandler() {
+    console.debug('Exiting...');
+    RadiYo.VOICE_MANAGERS.forEach((voiceMgr) => {
+        voiceMgr.leaveVoiceChannel();
+    });
+    client.destroy();
+    process.exit();
+}
+//do something when app is closing
+process.on('exit', exitHandler);
+
+//catches ctrl+c event
+process.on('SIGINT', exitHandler);
+
+// catches "kill pid" (for example: nodemon restart)
+process.on('SIGUSR1', exitHandler);
+process.on('SIGUSR2', exitHandler);
+
+//catches uncaught exceptions
+process.on('uncaughtException', exitHandler);

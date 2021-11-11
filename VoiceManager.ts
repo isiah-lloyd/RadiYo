@@ -53,13 +53,13 @@ export class VoiceManager {
     public leaveVoiceChannel(): void {
         this.playerUnsubscribe();
         this.getVoiceConnection()?.destroy();
-        RadiYo.deleteVoiceManager(this.GUILD.id);
         const lastMsg = this.msg_fifo[this.msg_fifo.length -1];
         if(lastMsg) {
             const responseMessage = new MessageEmbed(lastMsg.embeds[0])
                 .setTitle('Previously Played');
             lastMsg.edit({embeds: [responseMessage], components: []});
         } 
+        RadiYo.deleteVoiceManager(this.GUILD.id);
     }
     public getVoiceConnection() : VoiceConnection | undefined {
         return getVoiceConnection(this.GUILD.id);

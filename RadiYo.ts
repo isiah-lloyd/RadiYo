@@ -1,4 +1,4 @@
-import { Guild, MessageEmbed, TextBasedChannels, VoiceChannel } from 'discord.js';
+import {Client, ClientUser, Guild, MessageEmbed, TextBasedChannels, VoiceChannel } from 'discord.js';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
 import { Station } from './util/interfaces';
@@ -10,8 +10,9 @@ class RadiYo {
     readonly DISCORD_GUILD_ID : string = this.getEnv('DISCORD_GUILD_ID');
     readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY'); 
 
-    private VOICE_MANAGERS: Map<string, VoiceManager> = new Map();
+    public VOICE_MANAGERS: Map<string, VoiceManager> = new Map();
     public RADIO_PLAYERS: Map<string, RadioPlayer> = new Map();
+    public CLIENT: Client | null = null;
 
     private getEnv(envVar: string): string {
         const p = process.env[envVar];
@@ -29,6 +30,13 @@ class RadiYo {
     public createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) : VoiceManager {
         const rs = this.getVoiceManager(guild);
         if(rs) {
+            if(voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
+                console.debug('Switching channels');
+                rs.leaveVoiceChannel();
+                const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
+                this.VOICE_MANAGERS.set(guild.id, newVm);
+                return newVm;
+            }
             return rs;
         }
         else {
@@ -52,6 +60,11 @@ class RadiYo {
         }
         console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
         return rp;
+    }
+    public getBotUser(): ClientUser {
+        const user = this.CLIENT?.user;
+        if(user) return user;
+        else throw new Error('Could not fetch bot user');
     }
     public deleteRadioPlayer(station: Station): boolean {
         //TODO: Actually implement this
