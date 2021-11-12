@@ -2,7 +2,7 @@ import { AudioPlayer, AudioResource, createAudioPlayer, createAudioResource, NoS
 //import xmlParse from 'fast-xml-parser';
 import fetch, { Headers } from 'node-fetch';
 import events from 'events';
-
+import URL from 'url';
 //import STATIC_STATIONS from './static_stations.json';
 import { NowPlaying, PlaylistAPIResponse, Station } from './util/interfaces';
 import { SpliceMetadata } from './util/SpliceMetadata';
@@ -22,12 +22,22 @@ export class RadioPlayer extends events.EventEmitter {
     }
 
     public async play(station: Station): Promise<void> {
-        const audioStream = await fetch(station.streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+        const streamDownloadURL = new URL.URL(station.streamDownloadURL);
+        if(streamDownloadURL.protocol === 'https:') {
+            streamDownloadURL.protocol = 'http:';
+        }
+        const audioStream = await fetch(streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+        if(!audioStream.ok) {
+            this.emit('error', `There was an error while streaming this station! HTTP ${audioStream.status}`);
+        }
         const metaInt = audioStream.headers.get('icy-metaint');
         let resource: AudioResource;
         if(metaInt) {
             const spliceMetadata = new SpliceMetadata(parseInt(metaInt), this.updateCurrentPlaying.bind(this));
             audioStream.body.pipe(spliceMetadata);
+            audioStream.body.once('close', () => console.log('Stream was closed'));
+            audioStream.body.once('end', () => console.log('Stream was ended'));
+            audioStream.body.once('error', () => console.log('Stream was error'));
             resource = createAudioResource(spliceMetadata);
         }
         else {
