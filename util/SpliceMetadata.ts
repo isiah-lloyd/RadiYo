@@ -24,6 +24,14 @@ export class SpliceMetadata extends Transform {
             if(rawProc.includes('adContext=')) {
                 return 'Advertisement';
             }
+            if(rawProc.includes('adswizzContext')) {
+                const durationMs = rawProc.split('durationMilliseconds=\'')[1].split('\'')[0];
+                let durationS = 0;
+                if(durationMs) {
+                    durationS = parseInt(durationMs) / 1000;
+                }
+                return `Advertisement - Duration: ${durationS}`;
+            }
             if(rawProc.includes('song_spot')) {
                 // we are in iheartmedia land :(
                 const split = rawProc.split(' - text="');
@@ -58,10 +66,12 @@ export class SpliceMetadata extends Transform {
                 else if(this.iterator > 0) {
                     this.iterator--;
                     if(byte !== 0) {
-                        this.tempBuffer += String.fromCharCode(byte);
+                        if(hexArray){
+                            this.tempBuffer += hexArray[index];
+                        } 
                     }
                     if(this.iterator === 0) {
-                        const songTitle = this.extractSongTitle(this.tempBuffer);
+                        const songTitle = this.extractSongTitle(Buffer.from(this.tempBuffer, 'hex').toString('utf8'));
                         if(songTitle) { this.updateFn(songTitle); } 
                         this.tempBuffer = '';
                     }
