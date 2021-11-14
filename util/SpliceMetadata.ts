@@ -21,10 +21,10 @@ export class SpliceMetadata extends Transform {
             console.log(raw);
             const np: NowPlaying = {} as NowPlaying;
             const rawProc : string = raw.split('StreamTitle=\'')[1].split('\';')[0];
-            if(rawProc.includes('adContext=')) {
+            if(raw.includes('adContext=')) {
                 return 'Advertisement';
             }
-            if(rawProc.includes('adswizzContext')) {
+            if(raw.includes('adswizzContext')) {
                 const durationMs = rawProc.split('durationMilliseconds=\'')[1].split('\'')[0];
                 let durationS = 0;
                 if(durationMs) {
