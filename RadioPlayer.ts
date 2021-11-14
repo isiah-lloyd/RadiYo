@@ -35,9 +35,9 @@ export class RadioPlayer extends events.EventEmitter {
         if(metaInt) {
             const spliceMetadata = new SpliceMetadata(parseInt(metaInt), this.updateCurrentPlaying.bind(this));
             audioStream.body.pipe(spliceMetadata);
-            audioStream.body.once('close', () => console.log('Stream was closed'));
-            audioStream.body.once('end', () => console.log('Stream was ended'));
-            audioStream.body.once('error', () => console.log('Stream was error'));
+            spliceMetadata.on('close', () => console.log('Stream was closed'));
+            spliceMetadata.on('end', () => console.log('Stream was ended'));
+            spliceMetadata.on('error', () => console.log('Stream was error'));
             resource = createAudioResource(spliceMetadata);
         }
         else {
