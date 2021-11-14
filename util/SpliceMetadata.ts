@@ -25,7 +25,7 @@ export class SpliceMetadata extends Transform {
                 return 'Advertisement';
             }
             if(raw.includes('adswizzContext')) {
-                const durationMs = rawProc.split('durationMilliseconds=\'')[1].split('\'')[0];
+                const durationMs = raw.split('durationMilliseconds=\'')[1].split('\'')[0];
                 let durationS = 0;
                 if(durationMs) {
                     durationS = parseInt(durationMs) / 1000;
