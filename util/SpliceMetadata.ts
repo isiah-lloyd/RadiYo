@@ -19,19 +19,24 @@ export class SpliceMetadata extends Transform {
          */
         private extractSongTitle(raw: string): NowPlaying | string | null {
             console.log(raw);
-            const np: NowPlaying = {} as NowPlaying;
             const rawProc : string = raw.split('StreamTitle=\'')[1].split('\';')[0];
             if(raw.includes('adContext=')) {
                 return 'Advertisement';
             }
-            if(raw.includes('adswizzContext')) {
+            if(raw.includes('durationMilliseconds=')) {
                 const durationMs = raw.split('durationMilliseconds=\'')[1].split('\'')[0];
                 let durationS = 0;
                 if(durationMs) {
-                    durationS = parseInt(durationMs) / 1000;
+                    durationS = Math.round(parseInt(durationMs) / 1000);
                 }
-                return `Advertisement - Duration: ${durationS}`;
+                if(raw.includes('insertionType=\'preroll\'')) {
+                    return `Station pre roll ad, your music will begin shortly - Duration: ${durationS}s`;
+                }
+                else {
+                    return `Station advertisement - Duration: ${durationS}s`;
+                }
             }
+            const np: NowPlaying = {} as NowPlaying;
             if(rawProc.includes('song_spot')) {
                 // we are in iheartmedia land :(
                 const split = rawProc.split(' - text="');
