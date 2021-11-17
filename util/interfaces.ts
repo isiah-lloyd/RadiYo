@@ -4,6 +4,7 @@ export interface NowPlaying {
     albumArtUrl: string;
 }
 export interface Station {
+    id: string;
     image: string;
     subtext: string;
     //title of station
@@ -12,6 +13,12 @@ export interface Station {
     //link to m3u file
     URL: string,
     genre: string
+}
+
+export interface FeaturedStation {
+    title: string;
+    description: string;
+    stations: Station[];
 }
 
 // API responses

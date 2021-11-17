@@ -1,0 +1,17 @@
+[
+    {
+        "title": "Featured Stations",
+        "description": "⭐ Handpicked stations that we like",
+        "station_ids": ["165799", "110568"]
+    },
+    {
+        "title": "SomaFM",
+        "description": "SomaFM is the godfather of independent internet radio. Since 2000 SomaFM has been ad-free and listener supported. Here are a select few of their 40+ stations.",
+        "station_ids": ["88747","80309","70621", "110950", "116821"]
+    },
+    {
+        "title": "Christmas Jams",
+        "description": "🎅 is coming to town, get in the winter spirit with these carols.",
+        "station_ids": ["148244", "125737"]
+    }
+]

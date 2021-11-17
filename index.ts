@@ -1,4 +1,4 @@
-import { Client, GuildMember, Intents, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, InteractionReplyOptions, SelectMenuInteraction, VoiceChannel } from 'discord.js';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
@@ -19,14 +19,11 @@ client.on('interactionCreate', async interaction => {
         if(interaction.commandName === 'radio') {
             let vm: VoiceManager | null;
             if(interaction.options.getSubcommand() === 'play') {
-                const gm: GuildMember | undefined = await interaction.guild.members.cache.get(interaction.user.id);
+                interaction.deferReply();
                 const searchQuery = interaction.options.getString('query');
-                if(gm?.voice.channel && gm.voice.channel instanceof VoiceChannel && searchQuery) {
-                    if(!gm.voice.channel.permissionsFor(RadiYo.getBotUser())?.has('CONNECT')) {
-                        interaction.reply(`I don't have permission to join ${gm.voice.channel}`);
-                        return;
-                    }
-                    interaction.deferReply();
+                if(searchQuery) {
+                    const vc = await checkVoiceChannel(interaction);
+                    if(!vc) return;
                     let station;
                     try {
                         station = await RadioPlayer.searchOne(searchQuery);
@@ -37,7 +34,7 @@ client.on('interactionCreate', async interaction => {
                         return;
                     }
                     if(station && station.streamDownloadURL) {
-                        vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, gm.voice.channel);
+                        vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
                         vm.attachPlayer(station);
                         interaction.editReply({embeds: [vm.getCurrentStationEmbed()]});
                     }
@@ -45,47 +42,33 @@ client.on('interactionCreate', async interaction => {
                         interaction.editReply(`Could not find station: ${searchQuery}`);
                     }
                 }
-                else {
-                    interaction.reply('You must be in a voice channel to play the radio!');
-                }
             }
             else if(interaction.options.getSubcommand() === 'browse') {
-                //TODO
+                const featuredStations = RadiYo.getFeaturedStations();
+                for(const category of featuredStations) {
+                    const template = RadiYo.stationListEmbed(category.stations);
+                    const embed = template.embed.setTitle(category.title).setDescription(category.description);
+                    console.log(template.component);
+                    if(!interaction.replied) {
+                        await interaction.reply({embeds: [embed], components: [template.component], ephemeral: true});
+                    }
+                    else {
+                        await interaction.followUp({embeds: [embed], components: [template.component], ephemeral: true});
+                    }
+                }                
             }
             else if(interaction.options.getSubcommand() === 'search') {
                 interaction.deferReply({ephemeral: true});
                 const searchQuery = interaction.options.getString('query');
                 if(searchQuery) {
                     const searchResults = await RadioPlayer.search(searchQuery, 5);
-                    const fields = [];
                     if(searchResults) {
-                        for(let i = 0; i <= 5; i++) {
-                            if(searchResults[i]) {
-                                const nameObj = {
-                                    name: 'Name',
-                                    value: searchResults[i].text,
-                                    inline: true
-                                };
-                                const descObj = {
-                                    name: 'Description',
-                                    value: searchResults[i].subtext ? searchResults[i].subtext : 'N/A',
-                                    inline: true
-                                };
-                                const genreObj = {
-                                    name: 'Genre',
-                                    value: searchResults[i].genre ? searchResults[i].genre : 'N/A',
-                                    inline: true
-                                };
-                                fields.push(nameObj, descObj, genreObj);
-                            }
-                        }
-                        const responseMessage = RadiYo.newMsgEmbed()
-                            .setTitle(`Search Results for ${searchQuery}`)
-                            .addFields(fields);
-                        interaction.editReply({embeds: [responseMessage]});
+                        const template = RadiYo.stationListEmbed(searchResults);
+                        const responseMessage = template.embed
+                            .setTitle(`Search Results for ${searchQuery}`);
+                        interaction.editReply({embeds: [responseMessage], components: [template.component]});
                     }
                 }
-
             }
             else if(interaction.options.getSubcommand() === 'stop') {
                 vm = RadiYo.getVoiceManager(interaction.guild);
@@ -107,6 +90,28 @@ client.on('interactionCreate', async interaction => {
             
         }
     }
+    else if(interaction.isSelectMenu()) {
+        if(interaction.customId === 'choose_station') {
+            let vm: VoiceManager | null;
+            const vc = await checkVoiceChannel(interaction);
+            if(!vc) return;
+            let station;
+            try {
+                station = await RadioPlayer.searchByStationId(interaction.values[0]);
+            }
+            catch(err) {
+                console.error(err);
+                interactionSend(interaction, 'There was an error while getting that station, please try again later.');
+                return;
+            }
+            if(station && station.streamDownloadURL) {
+                vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
+                vm.attachPlayer(station);
+                interactionSend(interaction, {embeds: [vm.getCurrentStationEmbed()]});
+            }
+
+        }
+    }
 });
 client.on('voiceStateUpdate', (_, newState) => {
     const vm = RadiYo.getVoiceManager(newState.guild);
@@ -119,6 +124,7 @@ client.on('voiceStateUpdate', (_, newState) => {
 
 client.login(RadiYo.DISCORD_TOKEN);
 RadiYo.CLIENT = client;
+RadiYo.downloadFeaturedStations();
 console.log('Logged in!');
 
 function exitHandler() {
@@ -129,15 +135,49 @@ function exitHandler() {
     client.destroy();
     process.exit();
 }
+async function checkVoiceChannel(interaction: CommandInteraction | SelectMenuInteraction): Promise<VoiceChannel | false> {
+    const gmaybe : GuildMember | undefined = await interaction.guild?.members.cache.get(interaction.user.id);
+    let gm: GuildMember;
+    if(gmaybe instanceof GuildMember) {
+        gm = gmaybe;
+        if(!gm.voice.channel) {
+            interactionSend(interaction, 'You must be in a voice channel to play the radio!');
+            return false;
+        }
+        if(!gm.voice.channel.permissionsFor(RadiYo.getBotUser())?.has('CONNECT')) {
+            interactionSend(interaction, `I don't have permission to join ${gm.voice.channel}`);
+            return false;
+        }
+        if(gm.voice.channel instanceof VoiceChannel){
+            return gm.voice.channel;
+        }
+        else {
+            interactionSend(interaction, 'You must be in a voice channel to play the radio!');
+        }
+    }
+    return false;
+}
+function interactionSend(interaction: CommandInteraction | ButtonInteraction | SelectMenuInteraction, args: string | InteractionReplyOptions) {
+    if(interaction.deferred) {
+        interaction.editReply(args);
+        return;
+    }
+    if(interaction.replied) {
+        interaction.followUp(args);
+    }
+    else {
+        interaction.reply(args);
+    }
+}
 //do something when app is closing
-process.on('exit', exitHandler);
+//process.on('exit', exitHandler);
 
 //catches ctrl+c event
 process.on('SIGINT', exitHandler);
 
 // catches "kill pid" (for example: nodemon restart)
-process.on('SIGUSR1', exitHandler);
-process.on('SIGUSR2', exitHandler);
+//process.on('SIGUSR1', exitHandler);
+//process.on('SIGUSR2', exitHandler);
 
 //catches uncaught exceptions
-process.on('uncaughtException', exitHandler);
+//process.on('uncaughtException', exitHandler);

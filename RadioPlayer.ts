@@ -125,11 +125,11 @@ export class RadioPlayer extends events.EventEmitter {
             });
             for(const result of results){
                 const station: Station = {} as Station;
-                const stationId = result.station_id;
+                station.id = result.station_id;
                 station.text = result.callsign;
                 //const streamingURLResult = await(await fetch(`http://api.dar.fm/uberstationurl.php?callback=json&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}&station_id=${stationId}`)).json();
-                const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&station_id=${stationId}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json();
-                station.streamDownloadURL = `http://stream.dar.fm/${stationId}`;
+                station.streamDownloadURL = `http://stream.dar.fm/${station.id}`;
+                const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&station_id=${station.id}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json();
                 const stationInfo = stationInfoResult.result[0].stations[0];
                 station.image = stationInfo.station_image;
                 station.subtext = stationInfo.slogan ? stationInfo.slogan : stationInfo.description;
@@ -141,6 +141,18 @@ export class RadioPlayer extends events.EventEmitter {
         else {
             return null;
         }
+    }
+    static async searchByStationId(stationId: string): Promise<Station> {
+        const station: Station = {} as Station;
+        station.streamDownloadURL = `http://stream.dar.fm/${stationId}`;
+        const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&station_id=${stationId}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json();
+        const stationInfo = stationInfoResult.result[0].stations[0];
+        station.id = stationId;
+        station.text = stationInfo.callsign;
+        station.image = stationInfo.station_image;
+        station.subtext = stationInfo.slogan ? stationInfo.slogan : stationInfo.description;
+        station.genre = stationInfo.genre;
+        return station;
     }
     static async searchOne(query: string): Promise<Station | null> {
         const search = await RadioPlayer.search(query, 2);
