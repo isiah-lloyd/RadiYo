@@ -69,7 +69,6 @@ class RadiYo {
         else throw new Error('Could not fetch bot user');
     }
     public deleteRadioPlayer(station: Station): boolean {
-        //TODO: Actually implement this
         const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
         console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
         return v;

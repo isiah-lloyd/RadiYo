@@ -48,7 +48,6 @@ client.on('interactionCreate', async interaction => {
                 for(const category of featuredStations) {
                     const template = RadiYo.stationListEmbed(category.stations);
                     const embed = template.embed.setTitle(category.title).setDescription(category.description);
-                    console.log(template.component);
                     if(!interaction.replied) {
                         await interaction.reply({embeds: [embed], components: [template.component], ephemeral: true});
                     }
