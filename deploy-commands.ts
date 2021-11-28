@@ -24,13 +24,20 @@ const commands = [
         })
         .addSubcommand(() => {
             return new SlashCommandSubcommandBuilder().setName('search')
-                .setDescription('Search for a station by name, genre, or currently playing artist/song')
+                .setDescription('Search by artist or station name')
                 .addStringOption(option => {
                     return option.setName('query')
-                        .setDescription('<name|genre|artist|song>')
+                        .setDescription('query')
                         .setRequired(true);
+                })
+                .addStringOption(option => {
+                    return option.setName('category')
+                        .setDescription('Category to search, defaults to artist')
+                        .setRequired(false)
+                        .addChoice('Artist', 'choice_artist')
+                        .addChoice('Station', 'choice_station');
+                        
                 });
-
         })
         .addSubcommand(() => {
             return new SlashCommandSubcommandBuilder().setName('stop')

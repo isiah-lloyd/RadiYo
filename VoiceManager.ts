@@ -35,7 +35,15 @@ export class VoiceManager {
     }
     public attachPlayer(station: Station): boolean {
         if (this.PLAYER_SUBSCRIPTION) this.playerUnsubscribe(); 
-        this.RADIO_PLAYER = RadiYo.getRadioPlayer(station);
+        try {
+            this.RADIO_PLAYER = RadiYo.getRadioPlayer(station);
+        }
+        catch(err) {
+            console.error(err);
+            this.NOTIFICATION_CHANNEL.send('There was an error while trying to stream this station, please try another one.');
+            this.leaveVoiceChannel();
+            return false;
+        }
         const playerHolder = this.getVoiceConnection()?.subscribe(this.RADIO_PLAYER.PLAYER);
         if(playerHolder) {
             this.PLAYER_SUBSCRIPTION = playerHolder;

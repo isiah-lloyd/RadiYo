@@ -29,17 +29,17 @@ client.on('interactionCreate', async interaction => {
                         station = await RadioPlayer.searchOne(searchQuery);
                     }
                     catch(err) {
-                        interaction.editReply('There was an error while searching for a station. Please try again later.');
+                        interactionSend(interaction, 'There was an error while searching for a station. Please try again later.');
                         console.error(err);
                         return;
                     }
                     if(station && station.streamDownloadURL) {
                         vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
                         vm.attachPlayer(station);
-                        interaction.editReply({embeds: [vm.getCurrentStationEmbed()]});
+                        interactionSend(interaction, {embeds: [vm.getCurrentStationEmbed()]});
                     }
                     else {
-                        interaction.editReply(`Could not find station: ${searchQuery}`);
+                        interactionSend(interaction, `Could not find station: ${searchQuery}`);
                     }
                 }
             }
@@ -58,14 +58,37 @@ client.on('interactionCreate', async interaction => {
             }
             else if(interaction.options.getSubcommand() === 'search') {
                 interaction.deferReply({ephemeral: true});
+                const searchCategory = interaction.options.getString('category') ? interaction.options.getString('category') : 'choice_artist';
                 const searchQuery = interaction.options.getString('query');
                 if(searchQuery) {
-                    const searchResults = await RadioPlayer.search(searchQuery, 5);
-                    if(searchResults) {
-                        const template = RadiYo.stationListEmbed(searchResults);
+                    let searchResults;
+                    let template;
+                    if(searchCategory === 'choice_artist') {
+                        searchResults = await RadioPlayer.searchByArtist(searchQuery, 5);
+                        if(searchResults && searchResults.length !== 0) {
+                            template = RadiYo.nowPlayingListEmbed(searchResults);
+                        }
+                        else {
+                            interactionSend(interaction, `No results found for ${searchQuery}`);
+                        }
+                    }
+                    else {
+                        searchResults = await RadioPlayer.search(searchQuery, 5);
+                        if(searchResults && searchResults.length) {
+                            template = RadiYo.stationListEmbed(searchResults);
+                        }
+                        else {
+                            interactionSend(interaction, `No results found for ${searchQuery}`);
+                        }
+                    }
+                    if(template) {
                         const responseMessage = template.embed
                             .setTitle(`Search Results for ${searchQuery}`);
                         interaction.editReply({embeds: [responseMessage], components: [template.component]});
+                    }
+                    else {
+                        console.error(searchResults);
+                        interactionSend(interaction, 'There was an error searching.');
                     }
                 }
             }
@@ -84,8 +107,15 @@ client.on('interactionCreate', async interaction => {
     else if(interaction.isButton()) {
         const vm = RadiYo.getVoiceManager(interaction.guild);
         if(interaction.customId === 'stop_stream') {
-            interaction.reply('Stopping stream!');
-            vm?.leaveVoiceChannel();
+            if(vm) {
+                interaction.reply(`${interaction.user} has stopped the stream`);
+                vm.leaveVoiceChannel();
+            }
+            else {
+                const embed = interaction.message.embeds[0];
+                interaction.update({embeds: [embed], components: []});
+            }
+
             
         }
     }
@@ -123,7 +153,7 @@ client.on('voiceStateUpdate', (_, newState) => {
 
 client.login(RadiYo.DISCORD_TOKEN);
 RadiYo.CLIENT = client;
-RadiYo.downloadFeaturedStations();
+if(process.env.NODE_ENV !== 'development'){RadiYo.downloadFeaturedStations();}
 console.log('Logged in!');
 
 function exitHandler() {

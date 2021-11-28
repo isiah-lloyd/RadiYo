@@ -1,10 +1,10 @@
-import { AudioPlayer, AudioResource, createAudioPlayer, createAudioResource, NoSubscriberBehavior } from '@discordjs/voice';
+import { AudioPlayer, AudioPlayerState, AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, NoSubscriberBehavior } from '@discordjs/voice';
 //import xmlParse from 'fast-xml-parser';
-import fetch, { Headers } from 'node-fetch';
+import fetch, { FetchError, Headers } from 'node-fetch';
 import events from 'events';
 import URL from 'url';
 //import STATIC_STATIONS from './static_stations.json';
-import { NowPlaying, PlaylistAPIResponse, Station } from './util/interfaces';
+import { NowPlaying, PlaylistAPIResponse, reco2APIResponse, Station, StationNowPlaying } from './util/interfaces';
 import { SpliceMetadata } from './util/SpliceMetadata';
 import RadiYo from './RadiYo';
 
@@ -19,14 +19,38 @@ export class RadioPlayer extends events.EventEmitter {
                 noSubscriber: NoSubscriberBehavior.Stop,
             },
         });
+        this.PLAYER.on('error', (error) => {console.error(error.message);});
+        this.PLAYER.on('stateChange', this.stateHandler);
+        this.PLAYER.on('unsubscribe', () => {
+            console.debug('A VoiceConnection unsubscribed from a player');
+            console.debug('Current subscribers: ', this.listenerCount('metadataChange')); 
+            if(this.listenerCount('metadataChange') == 0) {
+                this.PLAYER.stop();
+                RadiYo.deleteRadioPlayer(this.CURRENT_STATION);
+            }
+        });
     }
 
     public async play(station: Station): Promise<void> {
+        this.CURRENT_STATION = station;
         const streamDownloadURL = new URL.URL(station.streamDownloadURL);
         if(streamDownloadURL.protocol === 'https:') {
             streamDownloadURL.protocol = 'http:';
         }
-        const audioStream = await fetch(streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+        let audioStream;
+        try {
+            audioStream = await fetch(streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+        }
+        catch(err: unknown) {
+            if(err instanceof FetchError) {
+                console.error(err);
+                this.emit('error', `There was an error while streaming this station! ${err.code}`);
+            }
+            else {
+                console.error(err);
+            }
+            return;
+        }
         if(!audioStream.ok) {
             this.emit('error', `There was an error while streaming this station! HTTP ${audioStream.status}`);
         }
@@ -35,9 +59,6 @@ export class RadioPlayer extends events.EventEmitter {
         if(metaInt) {
             const spliceMetadata = new SpliceMetadata(parseInt(metaInt), this.updateCurrentPlaying.bind(this));
             audioStream.body.pipe(spliceMetadata);
-            spliceMetadata.on('close', () => console.log('Stream was closed'));
-            spliceMetadata.on('end', () => console.log('Stream was ended'));
-            spliceMetadata.on('error', () => console.log('Stream was error'));
             resource = createAudioResource(spliceMetadata);
         }
         else {
@@ -45,16 +66,12 @@ export class RadioPlayer extends events.EventEmitter {
         }
         this.PLAYER.play(resource);
         //this.PLAYER.on('error', err => { this.emit('error', err); });
-        this.PLAYER.on('error', (error) => {console.error(error.message);});
-        this.PLAYER.on('stateChange', (oldState, newState)  => {console.debug(`State changed for ${station.text} from ${oldState.status} to ${newState.status}`);});
-        this.PLAYER.on('unsubscribe', () => {
-            console.debug('A VoiceConnection unsubscribed from a player');
-            console.debug('Current subscribers: ', this.listenerCount('metadataChange')); 
-            if(this.listenerCount('metadataChange') == 0) {
-                this.PLAYER.stop();
-                RadiYo.deleteRadioPlayer(station);
-            }
-        });
+    }
+    private stateHandler(oldState: AudioPlayerState, newState: AudioPlayerState) {
+        if(this.listenerCount('metadataChange') !== 0 && oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
+            console.debug('Stream went to idle from playing with > 0 subscribers, restarting stream.');
+            this.play(this.CURRENT_STATION);
+        }
     }
     private async getAlbumArt(search: NowPlaying): Promise<NowPlaying> {
         const searchString: string = encodeURIComponent(`${search.artist} ${search.title}`);
@@ -153,6 +170,28 @@ export class RadioPlayer extends events.EventEmitter {
         station.subtext = stationInfo.slogan ? stationInfo.slogan : stationInfo.description;
         station.genre = stationInfo.genre;
         return station;
+    }
+    static async searchByArtist(query: string, limit : number | null = null): Promise<StationNowPlaying[] | null> {
+        const stations: StationNowPlaying[] = [];
+        let counter = 0;
+        const playlistResults = await(await fetch(`http://api.dar.fm/reco2.php?callback=json&artist=${encodeURIComponent(query)}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as reco2APIResponse;
+        if(playlistResults.success) {
+            for(const result of playlistResults.result) {
+                if (limit && counter >= limit) break;
+                const station: StationNowPlaying = {} as StationNowPlaying;
+                station.nowPlaying = {title: '', artist: ''};
+                station.id = result.playlist.station_id;
+                station.text = result.playlist.callsign;
+                station.nowPlaying.title = result.songtitle;
+                station.nowPlaying.artist = result.songartist;
+                stations.push(station);
+                counter++;
+            }
+            return stations;
+        }
+        else {
+            return null;
+        }
     }
     static async searchOne(query: string): Promise<Station | null> {
         const search = await RadioPlayer.search(query, 2);

@@ -14,6 +14,14 @@ export interface Station {
     URL: string,
     genre: string
 }
+export interface StationNowPlaying {
+    text: string;
+    id: string;
+    nowPlaying: {
+        title: string;
+        artist: string;
+    }
+}
 
 export interface FeaturedStation {
     title: string;
@@ -30,4 +38,13 @@ interface PlaylistAPIResponseArray {
 export interface PlaylistAPIResponse {
     success: boolean;
     result: PlaylistAPIResponseArray[]
+}
+interface reco2APIResponseArray {
+    songartist: string;
+    songtitle: string;
+    playlist: PlaylistAPIResponseArray;
+}
+export interface reco2APIResponse {
+    success: boolean;
+    result: reco2APIResponseArray[]; 
 }

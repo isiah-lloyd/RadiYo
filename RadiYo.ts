@@ -1,9 +1,9 @@
-import {Client, ClientUser, Guild, MessageActionRow, MessageEmbed, MessageSelectMenu, MessageSelectOptionData, TextBasedChannels, VoiceChannel } from 'discord.js';
+import { Client, ClientUser, Guild, MessageActionRow, MessageEmbed, MessageSelectMenu, MessageSelectOptionData, TextBasedChannels, VoiceChannel } from 'discord.js';
 import 'dotenv/config';
-import { RadioPlayer } from './RadioPlayer';
-import { FeaturedStation, Station } from './util/interfaces';
-import { VoiceManager } from './VoiceManager';
 import featuredStationsJSON from './featured_stations.json';
+import { RadioPlayer } from './RadioPlayer';
+import { FeaturedStation, Station, StationNowPlaying } from './util/interfaces';
+import { VoiceManager } from './VoiceManager';
 
 class RadiYo {
     readonly DISCORD_TOKEN : string = this.getEnv('DISCORD_TOKEN');
@@ -60,18 +60,18 @@ class RadiYo {
             rp.play(station);
             this.RADIO_PLAYERS.set(station.streamDownloadURL, rp);
         }
-        console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
+        console.debug(`GET: There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
         return rp;
+    }
+    public deleteRadioPlayer(station: Station): boolean {
+        const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
+        console.debug(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
+        return v;
     }
     public getBotUser(): ClientUser {
         const user = this.CLIENT?.user;
         if(user) return user;
         else throw new Error('Could not fetch bot user');
-    }
-    public deleteRadioPlayer(station: Station): boolean {
-        const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
-        console.debug(`There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
-        return v;
     }
     public newMsgEmbed() : MessageEmbed {
         return new MessageEmbed()
@@ -102,6 +102,41 @@ class RadiYo {
                         inline: true
                     };
                     fields.push(nameObj, descObj, genreObj);
+                    selectOptions.push({label: stations[i].text, value: stations[i].id});
+                }
+            }
+        }
+        const row = new MessageActionRow().addComponents(
+            new MessageSelectMenu().setCustomId('choose_station')
+                .setPlaceholder('Select station to play...')
+                .addOptions(selectOptions)
+        );
+        return {embed:msg.addFields(fields), component: row};
+    }
+    public nowPlayingListEmbed(stations: StationNowPlaying[]) : {embed: MessageEmbed, component: MessageActionRow} {
+        const msg = this.newMsgEmbed();
+        const fields = [];
+        const selectOptions: MessageSelectOptionData[] = [];
+        if(stations) {
+            for(let i = 0; i <= 5; i++) {
+                if(stations[i]) {
+                    const nameObj = {
+                        name: 'Name',
+                        value: stations[i].text,
+                        inline: true
+                    };
+                    const npObj = {
+                        name: 'Now Playing',
+                        value: `${stations[i].nowPlaying.artist} - ${stations[i].nowPlaying.title}`,
+                        inline: true
+                    };
+                    const nopObj = {
+                        name: '\u200b',
+                        value: '\u200b',
+                        inline: true
+                    };
+
+                    fields.push(nameObj, npObj, nopObj);
                     selectOptions.push({label: stations[i].text, value: stations[i].id});
                 }
             }
@@ -148,6 +183,8 @@ class RadiYo {
             return this.featuredStations;
         }
     }
+
+    
 }
 
 export default new RadiYo();

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "npm run tsc && node dist/index.js",
-    "dev": "npm run tsc && node --inspect --enable-source-maps dist/index.js",
+    "dev": "npm run tsc && NODE_ENV=development node --inspect --enable-source-maps dist/index.js",
     "deploy-commands": "npm run tsc && node dist/deploy-commands.js",
     "deploy-commands-global": "npm run tsc && node dist/deploy-commands.js --global",
     "tsc": "tsc",
