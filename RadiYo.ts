@@ -3,13 +3,15 @@ import 'dotenv/config';
 import featuredStationsJSON from './featured_stations.json';
 import { RadioPlayer } from './RadioPlayer';
 import { FeaturedStation, Station, StationNowPlaying } from './util/interfaces';
+import logger from './util/logger';
 import { VoiceManager } from './VoiceManager';
 
 class RadiYo {
     readonly DISCORD_TOKEN : string = this.getEnv('DISCORD_TOKEN');
     readonly DISCORD_OAUTH_CLIENT_ID : string = this.getEnv('DISCORD_OAUTH_CLIENT_ID');
     readonly DISCORD_GUILD_ID : string = this.getEnv('DISCORD_GUILD_ID');
-    readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY'); 
+    readonly NOTIFICATION_CHANNEL_ID : string = this.getEnv('NOTIFICATION_CHANNEL_ID');
+    readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY');
 
     public VOICE_MANAGERS: Map<string, VoiceManager> = new Map();
     public RADIO_PLAYERS: Map<string, RadioPlayer> = new Map();
@@ -33,7 +35,6 @@ class RadiYo {
         const rs = this.getVoiceManager(guild);
         if(rs) {
             if(voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
-                console.debug('Switching channels');
                 rs.leaveVoiceChannel();
                 const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
                 this.VOICE_MANAGERS.set(guild.id, newVm);
@@ -44,13 +45,13 @@ class RadiYo {
         else {
             const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
             this.VOICE_MANAGERS.set(guild.id, newVm);
-            console.debug(`There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);   
+            logger.info(`CREATE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
             return newVm;
         }
     }
     public deleteVoiceManager(guildId: string): boolean {
         const v = this.VOICE_MANAGERS.delete(guildId);
-        console.debug(`There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);   
+        logger.info(`DELETE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
         return v;
     }
     public getRadioPlayer(station: Station): RadioPlayer {
@@ -60,12 +61,12 @@ class RadiYo {
             rp.play(station);
             this.RADIO_PLAYERS.set(station.streamDownloadURL, rp);
         }
-        console.debug(`GET: There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
+        logger.info(`GET: There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
         return rp;
     }
     public deleteRadioPlayer(station: Station): boolean {
         const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
-        console.debug(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);   
+        logger.info(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
         return v;
     }
     public getBotUser(): ClientUser {
@@ -75,7 +76,7 @@ class RadiYo {
     }
     public newMsgEmbed() : MessageEmbed {
         return new MessageEmbed()
-            .setAuthor('RadiYo!', 
+            .setAuthor('RadiYo!',
                 'https://cdn.discordapp.com/avatars/895354013116153876/90d756ddeab4c129d89b9f60df44ba95.png?size=32',
                 'https://github.com/isiah-lloyd/RadiYo');
     }
@@ -137,19 +138,19 @@ class RadiYo {
                     };
 
                     fields.push(nameObj, npObj, nopObj);
-                    selectOptions.push({label: stations[i].text, value: stations[i].id});
+                    selectOptions.push({label: `${stations[i].nowPlaying.artist} - ${stations[i].nowPlaying.title}`, value: stations[i].id});
                 }
             }
         }
         const row = new MessageActionRow().addComponents(
             new MessageSelectMenu().setCustomId('choose_station')
-                .setPlaceholder('Select station to play...')
+                .setPlaceholder('Select song to play...')
                 .addOptions(selectOptions)
         );
         return {embed:msg.addFields(fields), component: row};
     }
     public downloadFeaturedStations(): void {
-        console.log('Downloading Featured Stations');
+        logger.debug('Downloading Featured Stations');
         try {
             featuredStationsJSON.forEach((category) => {
                 const temp: FeaturedStation = {} as FeaturedStation;
@@ -170,7 +171,7 @@ class RadiYo {
             });
         }
         catch(err) {
-            console.error(err);
+            logger.error('There was an error downloading featured stations', err);
             this.featuredStations = [];
         }
     }
@@ -179,12 +180,12 @@ class RadiYo {
             return this.featuredStations;
         }
         else {
+            //TODO: This currently doesn't really work
+            logger.debug('No features stations...downloading');
             this.downloadFeaturedStations();
             return this.featuredStations;
         }
     }
-
-    
 }
 
 export default new RadiYo();

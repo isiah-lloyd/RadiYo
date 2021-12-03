@@ -7,6 +7,7 @@ import URL from 'url';
 import { NowPlaying, PlaylistAPIResponse, reco2APIResponse, Station, StationNowPlaying } from './util/interfaces';
 import { SpliceMetadata } from './util/SpliceMetadata';
 import RadiYo from './RadiYo';
+import logger from './util/logger';
 
 export class RadioPlayer extends events.EventEmitter {
     public NOW_PLAYING: NowPlaying = {} as NowPlaying;
@@ -22,8 +23,8 @@ export class RadioPlayer extends events.EventEmitter {
         this.PLAYER.on('error', (error) => {console.error(error.message);});
         this.PLAYER.on('stateChange', this.stateHandler);
         this.PLAYER.on('unsubscribe', () => {
-            console.debug('A VoiceConnection unsubscribed from a player');
-            console.debug('Current subscribers: ', this.listenerCount('metadataChange')); 
+            logger.debug('A VoiceConnection unsubscribed from a player');
+            logger.debug('Current subscribers: ', this.listenerCount('metadataChange'));
             if(this.listenerCount('metadataChange') == 0) {
                 this.PLAYER.stop();
                 RadiYo.deleteRadioPlayer(this.CURRENT_STATION);
@@ -43,11 +44,11 @@ export class RadioPlayer extends events.EventEmitter {
         }
         catch(err: unknown) {
             if(err instanceof FetchError) {
-                console.error(err);
+                logger.error('FetchError encountered while streaming', err);
                 this.emit('error', `There was an error while streaming this station! ${err.code}`);
             }
             else {
-                console.error(err);
+                logger.error('FetchError encountered while streaming', err);
             }
             return;
         }
@@ -69,7 +70,7 @@ export class RadioPlayer extends events.EventEmitter {
     }
     private stateHandler(oldState: AudioPlayerState, newState: AudioPlayerState) {
         if(this.listenerCount('metadataChange') !== 0 && oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
-            console.debug('Stream went to idle from playing with > 0 subscribers, restarting stream.');
+            logger.debug('Stream went to idle from playing with > 0 subscribers, restarting stream.');
             this.play(this.CURRENT_STATION);
         }
     }
@@ -109,7 +110,7 @@ export class RadioPlayer extends events.EventEmitter {
             }
         }
         //Search results return a m3u file, which is a
-        //playlist text file with each new line being a 
+        //playlist text file with each new line being a
         //potential stream URL or another m3u file (inception)
         const m3uResponse = await fetch(chosenStation.URL);
         let m3uText: string = await m3uResponse.text();
@@ -126,16 +127,16 @@ export class RadioPlayer extends events.EventEmitter {
         }
         return chosenStation;
     } */
-    static async search(query: string, limit : number | null = null): Promise<Station[] | null> {
+    static async search(query: string, limit : number | null = null, byCallsign = false): Promise<Station[] | null> {
         const stations: Station[] = [];
-        
+
         /*         const staticSearch = STATIC_STATIONS.find((station) => {
             return station.text.toLowerCase().replace(/\s/g, '') === query.toLowerCase().replace(/\s/g, '');
         });
         if(staticSearch) {
             return staticSearch as Station;
         } */
-        const playlistResults = await(await fetch(`http://api.dar.fm/playlist.php?callback=json${limit ? `&pagesize=${limit}` : ''}&q=${encodeURIComponent(query)}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as PlaylistAPIResponse;
+        const playlistResults = await(await fetch(`http://api.dar.fm/playlist.php?callback=json${limit ? `&pagesize=${limit}` : ''}&q=${byCallsign ? '@callsign%20' + encodeURIComponent(query) + '*': encodeURIComponent(query)}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as PlaylistAPIResponse;
         if(playlistResults.success) {
             const results = playlistResults.result.filter((el) => {
                 return el.band === 'NET' || el.band === 'FM' || el.band === 'AM';
@@ -193,6 +194,15 @@ export class RadioPlayer extends events.EventEmitter {
             return null;
         }
     }
+    static async searchByStation(query: string, limit = 5): Promise<Station[] | null> {
+        const search = await RadioPlayer.search(query, limit, true);
+        if (search) {
+            return search;
+        }
+        else {
+            return null;
+        }
+    }
     static async searchOne(query: string): Promise<Station | null> {
         const search = await RadioPlayer.search(query, 2);
         if(search) {
@@ -201,5 +211,26 @@ export class RadioPlayer extends events.EventEmitter {
         else {
             return null;
         }
+    }
+    static async getTopSongs() :Promise<StationNowPlaying[] | null> {
+        const stations: StationNowPlaying[] = [];
+        const playlistResults = await(await fetch(`http://api.dar.fm/topsongs.php?callback=json&q=Music&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as reco2APIResponse;
+        if(playlistResults.success) {
+            const random = playlistResults.result.sort(() => .5 - Math.random()).slice(0, 5);
+            for(const result of random) {
+                const station: StationNowPlaying = {} as StationNowPlaying;
+                station.nowPlaying = {title: '', artist: ''};
+                station.id = result.playlist.station_id;
+                station.text = result.playlist.callsign;
+                station.nowPlaying.title = result.songtitle;
+                station.nowPlaying.artist = result.songartist;
+                stations.push(station);
+            }
+            return stations;
+        }
+        else {
+            return null;
+        }
+
     }
 }

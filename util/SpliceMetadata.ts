@@ -1,5 +1,6 @@
 import { Transform, TransformCallback, TransformOptions } from 'stream';
 import { NowPlaying } from './interfaces';
+import logger from './logger';
 
 export class SpliceMetadata extends Transform {
         private META_INT : number;
@@ -18,7 +19,7 @@ export class SpliceMetadata extends Transform {
          * @param raw Metadata coming straight from the buffer 
          */
         private extractSongTitle(raw: string): NowPlaying | string | null {
-            console.log(raw);
+            logger.debug(raw);
             const rawProc : string = raw.split('StreamTitle=\'')[1].split('\';')[0];
             if(raw.includes('adContext=')) {
                 return 'Advertisement';

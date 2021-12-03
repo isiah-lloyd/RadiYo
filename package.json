@@ -31,6 +31,7 @@
     "fast-xml-parser": "^3.20.3",
     "html-entities": "^2.3.2",
     "node-fetch": "^2.6.2",
-    "sodium": "^3.0.2"
+    "sodium": "^3.0.2",
+    "winston": "^3.3.3"
   }
 }

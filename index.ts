@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
 import { VoiceManager } from './VoiceManager';
+import logger from './util/logger';
 
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES],
     presence: {activities: [{name: 'the radio!', type: ActivityTypes.LISTENING}]}
@@ -11,15 +12,16 @@ const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_V
 //TODO: This station spammed metadata changes, investigate "Positively The Biggest Hits From The 00's"
 client.on('interactionCreate', async interaction => {
     if(!interaction.guild || !interaction.channel) {
-        console.debug('Could not find guild or channel.');
+        logger.debug('Could not find guild or channel.');
         interaction.user.send('This bot will not work in DMs');
         return;
     }
     if(interaction.isCommand()) {
+        logger.info(`${interaction.user.username + '#' + interaction.user.discriminator} issued command ${interaction.options.getSubcommand() +' ' + getCmdOptions(interaction)} in Guild ${interaction.guild.name}`, {'interaction': interaction});
         if(interaction.commandName === 'radio') {
             let vm: VoiceManager | null;
             if(interaction.options.getSubcommand() === 'play') {
-                interaction.deferReply();
+                await interaction.deferReply();
                 const searchQuery = interaction.options.getString('query');
                 if(searchQuery) {
                     const vc = await checkVoiceChannel(interaction);
@@ -30,7 +32,7 @@ client.on('interactionCreate', async interaction => {
                     }
                     catch(err) {
                         interactionSend(interaction, 'There was an error while searching for a station. Please try again later.');
-                        console.error(err);
+                        logger.error('Error while searching for station', err);
                         return;
                     }
                     if(station && station.streamDownloadURL) {
@@ -45,6 +47,7 @@ client.on('interactionCreate', async interaction => {
             }
             else if(interaction.options.getSubcommand() === 'browse') {
                 const featuredStations = RadiYo.getFeaturedStations();
+                const topSongs = await RadioPlayer.getTopSongs();
                 for(const category of featuredStations) {
                     const template = RadiYo.stationListEmbed(category.stations);
                     const embed = template.embed.setTitle(category.title).setDescription(category.description);
@@ -54,7 +57,13 @@ client.on('interactionCreate', async interaction => {
                     else {
                         await interaction.followUp({embeds: [embed], components: [template.component], ephemeral: true});
                     }
-                }                
+                }
+                if(topSongs) {
+                    const template = RadiYo.nowPlayingListEmbed(topSongs);
+                    const embed = template.embed.setTitle('Popular Songs Playing Now');
+                    await interactionSend(interaction, {embeds: [embed], components: [template.component]});
+                }
+
             }
             else if(interaction.options.getSubcommand() === 'search') {
                 interaction.deferReply({ephemeral: true});
@@ -73,7 +82,7 @@ client.on('interactionCreate', async interaction => {
                         }
                     }
                     else {
-                        searchResults = await RadioPlayer.search(searchQuery, 5);
+                        searchResults = await RadioPlayer.searchByStation(searchQuery, 5);
                         if(searchResults && searchResults.length) {
                             template = RadiYo.stationListEmbed(searchResults);
                         }
@@ -87,7 +96,7 @@ client.on('interactionCreate', async interaction => {
                         interaction.editReply({embeds: [responseMessage], components: [template.component]});
                     }
                     else {
-                        console.error(searchResults);
+                        logger.error('There was an error generating template. Template: ', template);
                         interactionSend(interaction, 'There was an error searching.');
                     }
                 }
@@ -105,6 +114,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
     else if(interaction.isButton()) {
+        logger.info(`${interaction.user.username} pressed ${interaction.customId} in ${interaction.guild.name} guild`);
         const vm = RadiYo.getVoiceManager(interaction.guild);
         if(interaction.customId === 'stop_stream') {
             if(vm) {
@@ -116,10 +126,11 @@ client.on('interactionCreate', async interaction => {
                 interaction.update({embeds: [embed], components: []});
             }
 
-            
+
         }
     }
     else if(interaction.isSelectMenu()) {
+        logger.info(`${interaction.user.username} used ${interaction.customId} select menu. Selecting ${interaction.values[0]}`);
         if(interaction.customId === 'choose_station') {
             let vm: VoiceManager | null;
             const vc = await checkVoiceChannel(interaction);
@@ -129,7 +140,7 @@ client.on('interactionCreate', async interaction => {
                 station = await RadioPlayer.searchByStationId(interaction.values[0]);
             }
             catch(err) {
-                console.error(err);
+                logger.error('There was an error while searching for station by id', err);
                 interactionSend(interaction, 'There was an error while getting that station, please try again later.');
                 return;
             }
@@ -147,23 +158,33 @@ client.on('voiceStateUpdate', (_, newState) => {
     if (vm && vm.VOICE_CHANNEL.members.size === 1 && vm.VOICE_CHANNEL.members.has(RadiYo.getBotUser().id)) {
         vm.NOTIFICATION_CHANNEL.send(`I'm all alone! Leaving #${vm.VOICE_CHANNEL.name}`);
         vm.leaveVoiceChannel();
-    } 
+    }
 
+});
+
+client.on('guildCreate', (guild) => {
+    logger.info(`New guild has been added: ${guild.name} with ${guild.memberCount} members. Total member count: ${client.guilds.cache.size}`);
+});
+
+client.on('guildDelete', (guild) => {
+    logger.info(`${guild.name} has kicked RadiYo! Total member count: ${client.guilds.cache.size}`);
 });
 
 client.login(RadiYo.DISCORD_TOKEN);
 RadiYo.CLIENT = client;
 if(process.env.NODE_ENV !== 'development'){RadiYo.downloadFeaturedStations();}
-console.log('Logged in!');
+RadiYo.downloadFeaturedStations();
+logger.info('Logged in!');
 
 function exitHandler() {
-    console.debug('Exiting...');
+    logger.info('Exiting...');
     RadiYo.VOICE_MANAGERS.forEach((voiceMgr) => {
         voiceMgr.leaveVoiceChannel();
     });
     client.destroy();
     process.exit();
 }
+
 async function checkVoiceChannel(interaction: CommandInteraction | SelectMenuInteraction): Promise<VoiceChannel | false> {
     const gmaybe : GuildMember | undefined = await interaction.guild?.members.cache.get(interaction.user.id);
     let gm: GuildMember;
@@ -197,6 +218,17 @@ function interactionSend(interaction: CommandInteraction | ButtonInteraction | S
     else {
         interaction.reply(args);
     }
+}
+
+function getCmdOptions(interaction: CommandInteraction) : string {
+    let string = '';
+    const opts = interaction.options.data[0].options;
+    if(opts){
+        opts.forEach((option) => {
+            string += ' ' + option.value;
+        });
+    }
+    return string;
 }
 //do something when app is closing
 //process.on('exit', exitHandler);

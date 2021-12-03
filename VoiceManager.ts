@@ -4,6 +4,7 @@ import { decode as htmlDecode } from 'html-entities';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
 import { NowPlaying, Station } from './util/interfaces';
+import logger from './util/logger';
 
 export class VoiceManager {
     GUILD: Guild;
@@ -23,7 +24,7 @@ export class VoiceManager {
     }
     private joinVoiceChannel() {
         if(!this.VOICE_CHANNEL) {
-            console.error('No voice channel to join');
+            logger.debug('No voice channel to join');
         }
         else {
             joinVoiceChannel({
@@ -34,12 +35,13 @@ export class VoiceManager {
         }
     }
     public attachPlayer(station: Station): boolean {
+        logger.info(`Started playing ${station.text} (${station.id}) in ${this.GUILD.name}, ${this.VOICE_CHANNEL.members.size} people in channel`);
         if (this.PLAYER_SUBSCRIPTION) this.playerUnsubscribe(); 
         try {
             this.RADIO_PLAYER = RadiYo.getRadioPlayer(station);
         }
         catch(err) {
-            console.error(err);
+            logger.error('There was an error getting radio player: ', err);
             this.NOTIFICATION_CHANNEL.send('There was an error while trying to stream this station, please try another one.');
             this.leaveVoiceChannel();
             return false;
@@ -53,7 +55,7 @@ export class VoiceManager {
             return true;
         }
         else {
-            console.error('Could not attach player to voice connection');
+            logger.debug('Could not attach player to voice connection');
             return false;
         }
 
@@ -84,7 +86,7 @@ export class VoiceManager {
         this.RADIO_PLAYER?.removeListener('metadataChange', this.boundMetadataFn);
         this.RADIO_PLAYER?.removeListener('error', this.audioPlayerError);
         if(this.PLAYER_SUBSCRIPTION instanceof PlayerSubscription) {
-            console.debug('A Player subscription was found, unsubscribing.');
+            logger.debug('A Player subscription was found, unsubscribing.');
             this.PLAYER_SUBSCRIPTION.unsubscribe();
             this.PLAYER_SUBSCRIPTION = null;
         }
