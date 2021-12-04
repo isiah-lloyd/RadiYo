@@ -61,7 +61,7 @@ client.on('interactionCreate', async interaction => {
                 if(topSongs) {
                     const template = RadiYo.nowPlayingListEmbed(topSongs);
                     const embed = template.embed.setTitle('Popular Songs Playing Now');
-                    await interactionSend(interaction, {embeds: [embed], components: [template.component]});
+                    await interactionSend(interaction, {embeds: [embed], components: [template.component], ephemeral: true});
                 }
 
             }
