@@ -17,14 +17,16 @@ class DiscordTransport extends Transport {
         super(opts);
     }
     log(info: logFmt , next: () => void) {
-        const embed = RadiYo.newMsgEmbed().setTitle(info.level).setDescription(info.message);
-        if(info.level === 'error') {
-            embed.setColor('RED');
+        if(info.message){
+            const embed = RadiYo.newMsgEmbed().setTitle(info.level).setDescription(info.message);
+            if(info.level === 'error') {
+                embed.setColor('RED');
+            }
+            else if(info.level === 'info') {
+                embed.setColor('BLUE');
+            }
+            (RadiYo.CLIENT?.channels.cache.get(RadiYo.NOTIFICATION_CHANNEL_ID) as TextChannel)?.send({embeds: [embed]});
         }
-        else if(info.level === 'info') {
-            embed.setColor('BLUE');
-        }
-        (RadiYo.CLIENT?.channels.cache.get(RadiYo.NOTIFICATION_CHANNEL_ID) as TextChannel)?.send({embeds: [embed]});
         next();
     }
 }
@@ -43,10 +45,9 @@ const logger = winston.createLogger({
             )
         }
         ),
-        new DiscordTransport({level: 'info', format: winston.format.json()})
     ],
     handleExceptions: true,
     exitOnError: false
 });
-
+if(process.env.NODE_ENV !== 'development'){logger.transports.push(new DiscordTransport({level: 'info', format: winston.format.json()}));}
 export default logger;
