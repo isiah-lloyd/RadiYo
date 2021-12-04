@@ -71,14 +71,16 @@ client.on('interactionCreate', async interaction => {
                 const searchQuery = interaction.options.getString('query');
                 if(searchQuery) {
                     let searchResults;
-                    let template;
+                    let template = null;
                     if(searchCategory === 'choice_artist') {
                         searchResults = await RadioPlayer.searchByArtist(searchQuery, 5);
-                        if(searchResults && searchResults.length !== 0) {
+                        console.log(searchResults);
+                        if(searchResults !== null) {
                             template = RadiYo.nowPlayingListEmbed(searchResults);
                         }
                         else {
                             interactionSend(interaction, `No results found for ${searchQuery}`);
+                            return;
                         }
                     }
                     else {
@@ -88,6 +90,7 @@ client.on('interactionCreate', async interaction => {
                         }
                         else {
                             interactionSend(interaction, `No results found for ${searchQuery}`);
+                            return;
                         }
                     }
                     if(template) {
@@ -182,7 +185,7 @@ client.on('voiceStateUpdate', (_, newState) => {
 });
 
 client.on('guildCreate', (guild) => {
-    logger.info(`New guild has been added: ${guild.name} with ${guild.memberCount} members. Total member count: ${client.guilds.cache.size}`);
+    logger.info(`New guild has been added: ${guild.name} with ${guild.memberCount} members. Total guild count: ${client.guilds.cache.size}`);
 });
 
 client.on('guildDelete', (guild) => {
