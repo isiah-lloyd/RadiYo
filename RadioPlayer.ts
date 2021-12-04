@@ -45,7 +45,7 @@ export class RadioPlayer extends events.EventEmitter {
         catch(err: unknown) {
             if(err instanceof FetchError) {
                 logger.error('FetchError encountered while streaming', err);
-                this.emit('error', `There was an error while streaming this station! ${err.code}`);
+                this.emit('error', `There was an error while streaming this station! Please try another station. ${err.code}`);
             }
             else {
                 logger.error('FetchError encountered while streaming', err);
@@ -53,7 +53,7 @@ export class RadioPlayer extends events.EventEmitter {
             return;
         }
         if(!audioStream.ok) {
-            this.emit('error', `There was an error while streaming this station! HTTP ${audioStream.status}`);
+            this.emit('error', `There was an error while streaming this station! Please try another station. HTTP ${audioStream.status}`);
         }
         const metaInt = audioStream.headers.get('icy-metaint');
         let resource: AudioResource;
@@ -175,7 +175,7 @@ export class RadioPlayer extends events.EventEmitter {
     static async searchByArtist(query: string, limit : number | null = null): Promise<StationNowPlaying[] | null> {
         const stations: StationNowPlaying[] = [];
         let counter = 0;
-        const playlistResults = await(await fetch(`http://api.dar.fm/reco2.php?callback=json&artist=${encodeURIComponent(query)}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as reco2APIResponse;
+        const playlistResults = await(await fetch(`http://api.dar.fm/reco2.php?callback=json&artist=^${encodeURIComponent(query)}*&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as reco2APIResponse;
         if(playlistResults.success) {
             for(const result of playlistResults.result) {
                 if (limit && counter >= limit) break;
