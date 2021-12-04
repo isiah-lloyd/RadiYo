@@ -6,12 +6,12 @@ import RadiYo from './RadiYo';
 import { ApplicationCommandPermissionData, Client, Intents } from 'discord.js';
 
 
-const commands = [ 
+const commands = [
     new SlashCommandBuilder().setName('radio')
         .setDescription('Play a radio station in voice channel')
         .addSubcommand(() => {
-            return new SlashCommandSubcommandBuilder().setName('play')  
-                .setDescription('Play a station from an artist or station name')      
+            return new SlashCommandSubcommandBuilder().setName('play')
+                .setDescription('Play a station from an artist or station name')
                 .addStringOption(option => {
                     return option.setName('query')
                         .setDescription('<artist|song|station name>')
@@ -36,15 +36,19 @@ const commands = [
                         .setRequired(false)
                         .addChoice('Artist', 'choice_artist')
                         .addChoice('Station', 'choice_station');
-                        
+
                 });
         })
         .addSubcommand(() => {
             return new SlashCommandSubcommandBuilder().setName('stop')
                 .setDescription('Stops the music and leaves the voice channel');
         })
-        
-        
+        .addSubcommand(() => {
+            return new SlashCommandSubcommandBuilder().setName('help')
+                .setDescription('Get information about RadiYo! or invite it to your server');
+        })
+
+
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '9' }).setToken(RadiYo.DISCORD_TOKEN);

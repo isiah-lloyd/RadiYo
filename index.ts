@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, InteractionReplyOptions, SelectMenuInteraction, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, InteractionReplyOptions, MessageActionRow, MessageButton, SelectMenuInteraction, VoiceChannel } from 'discord.js';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
@@ -110,6 +110,25 @@ client.on('interactionCreate', async interaction => {
                 else {
                     interaction.reply('You can\'t stop something of which hasn\'t been started!');
                 }
+            }
+            else if(interaction.options.getSubcommand() === 'help') {
+                const embed = RadiYo.newMsgEmbed().setTitle('Thank you for using RadiYo!')
+                    .setDescription('RadiYo! let\'s you play internet radio stations in voice channels. For help or support, visit our website or Discord server.');
+                const row = new MessageActionRow().addComponents(
+                    new MessageButton()
+                        .setStyle('LINK')
+                        .setLabel('Invite to server')
+                        .setURL('https://discord.com/api/oauth2/authorize?client_id=895354013116153876&permissions=3147840&scope=bot%20applications.commands'),
+                    new MessageButton()
+                        .setStyle('LINK')
+                        .setLabel('Website')
+                        .setURL('https://radiyobot.com/?utm_source=about_cmd'),
+                    new MessageButton()
+                        .setStyle('LINK')
+                        .setLabel('Support Server')
+                        .setURL('https://discord.gg/s8nqYm76Xa')
+                );
+                interaction.reply({embeds: [embed], components: [row]});
             }
         }
     }
