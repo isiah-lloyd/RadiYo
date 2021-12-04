@@ -45,13 +45,13 @@ class RadiYo {
         else {
             const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
             this.VOICE_MANAGERS.set(guild.id, newVm);
-            logger.info(`CREATE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
+            logger.debug(`CREATE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
             return newVm;
         }
     }
     public deleteVoiceManager(guildId: string): boolean {
         const v = this.VOICE_MANAGERS.delete(guildId);
-        logger.info(`DELETE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
+        logger.debug(`DELETE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
         return v;
     }
     public getRadioPlayer(station: Station): RadioPlayer {
@@ -66,7 +66,7 @@ class RadiYo {
     }
     public deleteRadioPlayer(station: Station): boolean {
         const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
-        logger.info(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
+        logger.debug(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
         return v;
     }
     public getBotUser(): ClientUser {
