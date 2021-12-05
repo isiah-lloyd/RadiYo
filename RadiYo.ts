@@ -169,6 +169,7 @@ class RadiYo {
                 });
                 this.featuredStations.push(temp);
             });
+            logger.debug('2: ' + this.featuredStations);
         }
         catch(err) {
             logger.error('There was an error downloading featured stations', err);

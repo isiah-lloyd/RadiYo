@@ -49,6 +49,7 @@ client.on('interactionCreate', async interaction => {
                 const featuredStations = RadiYo.getFeaturedStations();
                 const topSongs = await RadioPlayer.getTopSongs();
                 for(const category of featuredStations) {
+                    logger.debug('1: '+ featuredStations);
                     const template = RadiYo.stationListEmbed(category.stations);
                     const embed = template.embed.setTitle(category.title).setDescription(category.description);
                     if(!interaction.replied) {
@@ -179,6 +180,7 @@ client.on('voiceStateUpdate', (_, newState) => {
     const vm = RadiYo.getVoiceManager(newState.guild);
     if (vm && vm.VOICE_CHANNEL.members.size === 1 && vm.VOICE_CHANNEL.members.has(RadiYo.getBotUser().id)) {
         vm.NOTIFICATION_CHANNEL.send(`I'm all alone! Leaving #${vm.VOICE_CHANNEL.name}`);
+        logger.info(`Leaving channel in ${vm.GUILD.name} due to empty voice channel`);
         vm.leaveVoiceChannel();
     }
 
