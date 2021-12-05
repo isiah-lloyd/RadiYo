@@ -49,5 +49,5 @@ const logger = winston.createLogger({
     handleExceptions: true,
     exitOnError: false
 });
-if(process.env.NODE_ENV !== 'development'){logger.transports.push(new DiscordTransport({level: 'info', format: winston.format.json()}));}
+if(process.env.NODE_ENV !== 'development'){logger.add(new DiscordTransport({level: 'info', format: winston.format.json()}));}
 export default logger;
