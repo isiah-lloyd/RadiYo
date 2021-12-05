@@ -1,5 +1,5 @@
 import { DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, PlayerSubscription, VoiceConnection } from '@discordjs/voice';
-import { EmbedFieldData, Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, VoiceChannel } from 'discord.js';
+import { EmbedFieldData, Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, TextChannel, VoiceChannel } from 'discord.js';
 import { decode as htmlDecode } from 'html-entities';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
@@ -16,6 +16,7 @@ export class VoiceManager {
     private RADIO_PLAYER: RadioPlayer | null = null;
     private boundMetadataFn = this.sendMetadataChange.bind(this);
     private last_msg: MessageEmbed | null = null;
+    private timeStarted = Date.now();
     constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
@@ -35,8 +36,8 @@ export class VoiceManager {
         }
     }
     public attachPlayer(station: Station): boolean {
-        logger.info(`Started playing ${station.text} (${station.id}) in ${this.GUILD.name}, ${this.VOICE_CHANNEL.members.size} people in channel`);
-        if (this.PLAYER_SUBSCRIPTION) this.playerUnsubscribe(); 
+        logger.info(`Started playing ${station.text} (${station.id}) in ${this.GUILD.name} (v:#${this.VOICE_CHANNEL.name}, n: #${(this.NOTIFICATION_CHANNEL as TextChannel).name}), ${this.VOICE_CHANNEL.members.size} people in channel`);
+        if (this.PLAYER_SUBSCRIPTION) this.playerUnsubscribe();
         try {
             this.RADIO_PLAYER = RadiYo.getRadioPlayer(station);
         }
@@ -61,6 +62,7 @@ export class VoiceManager {
 
     }
     public leaveVoiceChannel(): void {
+        logger.info(`Stopped stream in ${this.GUILD.name}, time elapsed ${((Date.now() - this.timeStarted )/ 60000).toFixed(2)} mins`);
         this.playerUnsubscribe();
         this.getVoiceConnection()?.destroy();
         const lastMsg = this.msg_fifo[this.msg_fifo.length -1];
@@ -68,7 +70,7 @@ export class VoiceManager {
             const responseMessage = new MessageEmbed(lastMsg.embeds[0])
                 .setTitle('Previously Played');
             lastMsg.edit({embeds: [responseMessage], components: []});
-        } 
+        }
         RadiYo.deleteVoiceManager(this.GUILD.id);
     }
     public getVoiceConnection() : VoiceConnection | undefined {
