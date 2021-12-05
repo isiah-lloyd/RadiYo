@@ -49,7 +49,6 @@ client.on('interactionCreate', async interaction => {
                 const featuredStations = RadiYo.getFeaturedStations();
                 const topSongs = await RadioPlayer.getTopSongs();
                 for(const category of featuredStations) {
-                    logger.debug('1: '+ featuredStations);
                     const template = RadiYo.stationListEmbed(category.stations);
                     const embed = template.embed.setTitle(category.title).setDescription(category.description);
                     if(!interaction.replied) {
@@ -197,7 +196,6 @@ client.on('guildDelete', (guild) => {
 client.login(RadiYo.DISCORD_TOKEN);
 RadiYo.CLIENT = client;
 if(process.env.NODE_ENV !== 'development'){RadiYo.downloadFeaturedStations();}
-RadiYo.downloadFeaturedStations();
 logger.info('Logged in!');
 
 function exitHandler() {
