@@ -1,5 +1,5 @@
 import { DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, PlayerSubscription, VoiceConnection } from '@discordjs/voice';
-import { EmbedFieldData, Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, TextChannel, VoiceChannel } from 'discord.js';
+import { EmbedFieldData, Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, TextChannel, User, VoiceChannel } from 'discord.js';
 import { decode as htmlDecode } from 'html-entities';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
@@ -93,6 +93,9 @@ export class VoiceManager {
         const memsNow = this.VOICE_CHANNEL.members.filter((member) => member.id !== RadiYo.getBotUser().id).size;
         if(memsNow > this.maxMembers) this.maxMembers = memsNow;
         return memsNow;
+    }
+    public isUserInVC(user: User): boolean {
+        return this.VOICE_CHANNEL.members.has(user.id);
     }
     private playerUnsubscribe(): void {
         this.RADIO_PLAYER?.removeListener('metadataChange', this.boundMetadataFn);

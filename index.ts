@@ -120,8 +120,13 @@ client.on('interactionCreate', async interaction => {
             else if(interaction.options.getSubcommand() === 'stop') {
                 vm = RadiYo.getVoiceManager(interaction.guild);
                 if(vm) {
-                    vm.leaveVoiceChannel();
-                    interaction.reply(`Leaving #${vm.VOICE_CHANNEL.name}`);
+                    if(vm.isUserInVC(interaction.user)){
+                        vm.leaveVoiceChannel();
+                        interaction.reply(`Leaving #${vm.VOICE_CHANNEL.name}`);
+                    }
+                    else {
+                        interaction.reply({content:'You must be in the voice channel to stop the groove!',ephemeral: true});
+                    }
                 }
                 else {
                     interaction.reply('You can\'t stop something of which hasn\'t been started!');
@@ -153,8 +158,13 @@ client.on('interactionCreate', async interaction => {
         const vm = RadiYo.getVoiceManager(interaction.guild);
         if(interaction.customId === 'stop_stream') {
             if(vm) {
-                interaction.reply(`${interaction.user} has stopped the stream`);
-                vm.leaveVoiceChannel();
+                if(vm.isUserInVC(interaction.user)) {
+                    interaction.reply(`${interaction.user} has stopped the stream`);
+                    vm.leaveVoiceChannel();
+                }
+                else {
+                    interaction.reply({content:'You must be in the voice channel to stop the groove!',ephemeral: true});
+                }
             }
             else {
                 const embed = interaction.message.embeds[0];
@@ -303,7 +313,7 @@ function checkIfHaveWritePerm(interaction: Interaction) {
     }
 }
 
-function getCmdOptions(interaction: CommandInteraction) : string {
+/* function getCmdOptions(interaction: CommandInteraction) : string {
     let string = '';
     const opts = interaction.options.data[0].options;
     if(opts){
@@ -312,7 +322,7 @@ function getCmdOptions(interaction: CommandInteraction) : string {
         });
     }
     return string;
-}
+} */
 //do something when app is closing
 //process.on('exit', exitHandler);
 
