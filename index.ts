@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, InteractionReplyOptions, MessageActionRow, MessageButton, SelectMenuInteraction, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, SelectMenuInteraction, TextChannel, VoiceChannel } from 'discord.js';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
@@ -17,7 +17,7 @@ client.on('interactionCreate', async interaction => {
         return;
     }
     if(interaction.isCommand()) {
-        logger.info(`${interaction.user.username + '#' + interaction.user.discriminator} issued command ${interaction.options.getSubcommand() +' ' + getCmdOptions(interaction)} in Guild ${interaction.guild.name}`, {'interaction': interaction});
+        logger.info(`${interaction.user.username + '#' + interaction.user.discriminator} issued ${interaction.toString()} in Guild ${interaction.guild.name}`, {'interaction': interaction});
         if(interaction.commandName === 'radio') {
             let vm: VoiceManager | null;
             if(interaction.options.getSubcommand() === 'play') {
@@ -39,8 +39,12 @@ client.on('interactionCreate', async interaction => {
                         vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
                         vm.attachPlayer(station);
                         interactionSend(interaction, {embeds: [vm.getCurrentStationEmbed()]});
+                        if(!checkIfHaveWritePerm(interaction)) {
+                            interactionSend(interaction, 'I don\'t have permission to send messages in this chanel so I won\'t be able to show the currently playing song. Ask an Admin to let me send messages!');
+                        }
                     }
                     else {
+                        logger.info(`Could not find station: ${searchQuery}`);
                         interactionSend(interaction, `Could not find station: ${searchQuery}`);
                     }
                 }
@@ -65,16 +69,15 @@ client.on('interactionCreate', async interaction => {
                 }
 
             }
-            else if(interaction.options.getSubcommand() === 'search') {
+            else if(['asearch', 'stsearch', 'gsearch'].includes(interaction.options.getSubcommand())) {
                 interaction.deferReply({ephemeral: true});
-                const searchCategory = interaction.options.getString('category') ? interaction.options.getString('category') : 'choice_artist';
                 const searchQuery = interaction.options.getString('query');
+                const searchCategory = interaction.options.getSubcommand();
                 if(searchQuery) {
                     let searchResults;
                     let template = null;
-                    if(searchCategory === 'choice_artist') {
+                    if(searchCategory === 'asearch') {
                         searchResults = await RadioPlayer.searchByArtist(searchQuery, 5);
-                        console.log(searchResults);
                         if(searchResults !== null) {
                             template = RadiYo.nowPlayingListEmbed(searchResults);
                         }
@@ -83,10 +86,20 @@ client.on('interactionCreate', async interaction => {
                             return;
                         }
                     }
-                    else {
+                    else if(searchCategory === 'stsearch') {
                         searchResults = await RadioPlayer.searchByStation(searchQuery, 5);
                         if(searchResults && searchResults.length) {
                             template = RadiYo.stationListEmbed(searchResults);
+                        }
+                        else {
+                            interactionSend(interaction, `No results found for ${searchQuery}`);
+                            return;
+                        }
+                    }
+                    else if(searchCategory === 'gsearch') {
+                        searchResults = await RadioPlayer.searchByGenre(searchQuery, 5);
+                        if(searchResults && searchResults.length) {
+                            template = RadiYo.nowPlayingListEmbed(searchResults);
                         }
                         else {
                             interactionSend(interaction, `No results found for ${searchQuery}`);
@@ -170,15 +183,45 @@ client.on('interactionCreate', async interaction => {
                 vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
                 vm.attachPlayer(station);
                 interactionSend(interaction, {embeds: [vm.getCurrentStationEmbed()]});
+                if(!checkIfHaveWritePerm(interaction)) {
+                    interactionSend(interaction, 'I don\'t have permission to send messages in this chanel so I won\'t be able to show the currently playing song. Ask an Admin to let me send messages!');
+                }
             }
 
+        }
+    }
+    else if(interaction.isAutocomplete()) {
+        const query = interaction.options.getFocused();
+        if(interaction.options.getSubcommand() === 'play'){
+            if(typeof query === 'string') {
+                const opts = await RadioPlayer.getAutocomplete(query);
+                if(opts){
+                    interaction.respond(opts.filter(x => x.keyword).map((x) => ({name: x.keyword, value: x.keyword})));
+                }
+            }
+        }
+        else if(interaction.options.getSubcommand() === 'stsearch') {
+            if(typeof query === 'string') {
+                const opts = await RadioPlayer.getAutocomplete(query);
+                if(opts){
+                    interaction.respond(opts.filter(x => x.keyword).filter(x => x.type === 'S').map((x) => ({name: x.keyword, value: x.keyword})));
+                }
+            }
+        }
+        else if(interaction.options.getSubcommand() === 'asearch') {
+            if(typeof query === 'string') {
+                const opts = await RadioPlayer.getAutocomplete(query);
+                if(opts){
+                    interaction.respond(opts.filter(x => x.keyword).filter(x => x.type === 'A').map((x) => ({name: x.keyword, value: x.keyword})));
+                }
+            }
         }
     }
 });
 client.on('voiceStateUpdate', (_, newState) => {
     const vm = RadiYo.getVoiceManager(newState.guild);
-    if (vm && vm.VOICE_CHANNEL.members.size === 1 && vm.VOICE_CHANNEL.members.has(RadiYo.getBotUser().id)) {
-        vm.NOTIFICATION_CHANNEL.send(`I'm all alone! Leaving #${vm.VOICE_CHANNEL.name}`);
+    if (vm && vm.getMembersInChannel() === 0) {
+        vm.sendLeavingMsg();
         logger.info(`Leaving channel in ${vm.GUILD.name} due to empty voice channel`);
         vm.leaveVoiceChannel();
     }
@@ -190,7 +233,9 @@ client.on('guildCreate', (guild) => {
 });
 
 client.on('guildDelete', (guild) => {
-    logger.info(`${guild.name} has kicked RadiYo! Total member count: ${client.guilds.cache.size}`);
+    const vm = RadiYo.getVoiceManager(guild);
+    vm?.leaveVoiceChannel();
+    logger.info(`${guild.name} has kicked RadiYo! Total guild count: ${client.guilds.cache.size}`);
 });
 
 client.login(RadiYo.DISCORD_TOKEN);
@@ -239,6 +284,22 @@ function interactionSend(interaction: CommandInteraction | ButtonInteraction | S
     }
     else {
         interaction.reply(args);
+    }
+}
+
+function checkIfHaveWritePerm(interaction: Interaction) {
+    if(interaction.channel?.isText() && interaction.guild?.me) {
+        const cnl = interaction.channel as TextChannel;
+        if(cnl.permissionsFor(interaction.guild.me).has('SEND_MESSAGES')) {
+            return true;
+        }
+        else {
+            logger.info(`I don't have permission to send messages in #${cnl.name} in guild ${interaction.guild.name}`);
+            return false;
+        }
+    }
+    else {
+        return false;
     }
 }
 

@@ -2,7 +2,7 @@ import { Client, ClientUser, Guild, MessageActionRow, MessageEmbed, MessageSelec
 import 'dotenv/config';
 import featuredStationsJSON from './featured_stations.json';
 import { RadioPlayer } from './RadioPlayer';
-import { FeaturedStation, Station, StationNowPlaying } from './util/interfaces';
+import { FeaturedStation, Station } from './util/interfaces';
 import logger from './util/logger';
 import { VoiceManager } from './VoiceManager';
 
@@ -78,14 +78,15 @@ class RadiYo {
         return new MessageEmbed()
             .setAuthor('RadiYo!',
                 'https://cdn.discordapp.com/avatars/895354013116153876/90d756ddeab4c129d89b9f60df44ba95.png?size=32',
-                'https://github.com/isiah-lloyd/RadiYo');
+                'https://radiyobot.com');
     }
     public stationListEmbed(stations: Station[]) : {embed: MessageEmbed, component: MessageActionRow} {
         const msg = this.newMsgEmbed();
         const fields = [];
         const selectOptions: MessageSelectOptionData[] = [];
         if(stations) {
-            for(let i = 0; i <= 5; i++) {
+            const length = stations.length <= 5 ? stations.length : 5;
+            for(let i = 0; i < length; i++) {
                 if(stations[i]) {
                     const nameObj = {
                         name: 'Name',
@@ -94,7 +95,7 @@ class RadiYo {
                     };
                     const descObj = {
                         name: 'Description',
-                        value: stations[i].subtext ? stations[i].subtext : 'N/A',
+                        value: stations[i].subtext ? stations[i].subtext.substring(0,1024) : 'N/A',
                         inline: true
                     };
                     const genreObj = {
@@ -103,7 +104,7 @@ class RadiYo {
                         inline: true
                     };
                     fields.push(nameObj, descObj, genreObj);
-                    selectOptions.push({label: stations[i].text, value: stations[i].id});
+                    selectOptions.push({label: stations[i].text.substring(0,100), value: stations[i].id});
                 }
             }
         }
@@ -114,13 +115,17 @@ class RadiYo {
         );
         return {embed:msg.addFields(fields), component: row};
     }
-    public nowPlayingListEmbed(stations: StationNowPlaying[]) : {embed: MessageEmbed, component: MessageActionRow} {
+    public nowPlayingListEmbed(stations: Station[]) : {embed: MessageEmbed, component: MessageActionRow} {
         const msg = this.newMsgEmbed();
         const fields = [];
         const selectOptions: MessageSelectOptionData[] = [];
         if(stations) {
-            for(let i = 0; i <= 5; i++) {
-                if(stations[i]) {
+            const length = stations.length <= 5 ? stations.length : 5;
+            for(let i = 0; i < length; i++) {
+                console.log(stations[i]);
+                const np = stations[i].nowPlaying;
+                if(stations[i] && np) {
+                    const label = `${np.artist} - ${np.title}`.substring(0, 100);
                     const nameObj = {
                         name: 'Name',
                         value: stations[i].text,
@@ -128,7 +133,7 @@ class RadiYo {
                     };
                     const npObj = {
                         name: 'Now Playing',
-                        value: `${stations[i].nowPlaying.artist} - ${stations[i].nowPlaying.title}`,
+                        value: label,
                         inline: true
                     };
                     const nopObj = {
@@ -138,7 +143,7 @@ class RadiYo {
                     };
 
                     fields.push(nameObj, npObj, nopObj);
-                    selectOptions.push({label: `${stations[i].nowPlaying.artist} - ${stations[i].nowPlaying.title}`, value: stations[i].id});
+                    selectOptions.push({label: label, value: stations[i].id});
                 }
             }
         }

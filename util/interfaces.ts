@@ -13,11 +13,7 @@ export interface Station {
     //link to m3u file
     URL: string,
     genre: string
-}
-export interface StationNowPlaying {
-    text: string;
-    id: string;
-    nowPlaying: {
+    nowPlaying?: {
         title: string;
         artist: string;
     }
@@ -34,6 +30,8 @@ interface PlaylistAPIResponseArray {
     callsign: string;
     station_id: string;
     band: string;
+    artist: string;
+    title: string;
 }
 export interface PlaylistAPIResponse {
     success: boolean;
@@ -46,5 +44,13 @@ interface reco2APIResponseArray {
 }
 export interface reco2APIResponse {
     success: boolean;
-    result: reco2APIResponseArray[]; 
+    result: reco2APIResponseArray[];
+}
+export interface autocompleteAPIResponseArray {
+    keyword: string;
+    type: 'A' | 'T' | 'S';
+}
+export interface autocompleteAPIResponse {
+    success: boolean
+    result: autocompleteAPIResponseArray[]
 }

@@ -4,6 +4,7 @@ import { Routes } from 'discord-api-types/v9';
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder } from '@discordjs/builders';
 import RadiYo from './RadiYo';
 import { ApplicationCommandPermissionData, Client, Intents } from 'discord.js';
+import genres from './util/genres';
 
 
 const commands = [
@@ -15,6 +16,7 @@ const commands = [
                 .addStringOption(option => {
                     return option.setName('query')
                         .setDescription('<artist|song|station name>')
+                        .setAutocomplete(true)
                         .setRequired(true);
                 });
         })
@@ -23,20 +25,33 @@ const commands = [
                 .setDescription('Discover new stations and find something right for the mood');
         })
         .addSubcommand(() => {
-            return new SlashCommandSubcommandBuilder().setName('search')
-                .setDescription('Search by artist or station name')
+            return new SlashCommandSubcommandBuilder().setName('asearch')
+                .setDescription('Search by artist')
                 .addStringOption(option => {
                     return option.setName('query')
-                        .setDescription('query')
+                        .setDescription('artist name')
+                        .setAutocomplete(true)
                         .setRequired(true);
-                })
+                });
+        })
+        .addSubcommand(() => {
+            return new SlashCommandSubcommandBuilder().setName('stsearch')
+                .setDescription('Search by station title')
                 .addStringOption(option => {
-                    return option.setName('category')
-                        .setDescription('Category to search, defaults to artist')
-                        .setRequired(false)
-                        .addChoice('Artist', 'choice_artist')
-                        .addChoice('Station', 'choice_station');
-
+                    return option.setName('query')
+                        .setDescription('station name')
+                        .setAutocomplete(true)
+                        .setRequired(true);
+                });
+        })
+        .addSubcommand(() => {
+            return new SlashCommandSubcommandBuilder().setName('gsearch')
+                .setDescription('Search by genre')
+                .addStringOption(option => {
+                    return option.setName('query')
+                        .setDescription('station name')
+                        .addChoices(genres.map(x => [x, x]))
+                        .setRequired(true);
                 });
         })
         .addSubcommand(() => {

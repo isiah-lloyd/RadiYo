@@ -17,6 +17,7 @@ export class VoiceManager {
     private boundMetadataFn = this.sendMetadataChange.bind(this);
     private last_msg: MessageEmbed | null = null;
     private timeStarted = Date.now();
+    private maxMembers = 0;
     constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
@@ -36,14 +37,15 @@ export class VoiceManager {
         }
     }
     public attachPlayer(station: Station): boolean {
-        logger.info(`Started playing ${station.text} (${station.id}) in ${this.GUILD.name} (v:#${this.VOICE_CHANNEL.name}, n: #${(this.NOTIFICATION_CHANNEL as TextChannel).name}), ${this.VOICE_CHANNEL.members.size} people in channel`);
+        logger.info(`Started playing ${station.text} (${station.id}) in ${this.GUILD.name} (v:#${this.VOICE_CHANNEL.name}, n: #${(this.NOTIFICATION_CHANNEL as TextChannel).name}), ${this.getMembersInChannel()} people in channel`);
+        this.maxMembers = this.VOICE_CHANNEL.members.size;
         if (this.PLAYER_SUBSCRIPTION) this.playerUnsubscribe();
         try {
             this.RADIO_PLAYER = RadiYo.getRadioPlayer(station);
         }
         catch(err) {
             logger.error('There was an error getting radio player: ', err);
-            this.NOTIFICATION_CHANNEL.send('There was an error while trying to stream this station, please try another one.');
+            if(this.canSendMsg()) this.NOTIFICATION_CHANNEL.send('There was an error while trying to stream this station, please try another one.');
             this.leaveVoiceChannel();
             return false;
         }
@@ -62,7 +64,7 @@ export class VoiceManager {
 
     }
     public leaveVoiceChannel(): void {
-        logger.info(`Stopped stream in ${this.GUILD.name}, time elapsed ${((Date.now() - this.timeStarted )/ 60000).toFixed(2)} mins`);
+        logger.info(`Stopped stream in ${this.GUILD.name}, time elapsed ${((Date.now() - this.timeStarted )/ 60000).toFixed(2)} mins. Max num of members: ${this.maxMembers}`);
         this.playerUnsubscribe();
         this.getVoiceConnection()?.destroy();
         const lastMsg = this.msg_fifo[this.msg_fifo.length -1];
@@ -84,6 +86,14 @@ export class VoiceManager {
             .setFields({name: 'Genre', value: this.STATION.genre})
             .setFooter('Search powered by onrad.io');
     }
+    public sendLeavingMsg(): void {
+        if(this.canSendMsg()) this.NOTIFICATION_CHANNEL.send(`I'm all alone! Leaving #${this.VOICE_CHANNEL.name}`);
+    }
+    public getMembersInChannel(): number {
+        const memsNow = this.VOICE_CHANNEL.members.filter((member) => member.id !== RadiYo.getBotUser().id).size;
+        if(memsNow > this.maxMembers) this.maxMembers = memsNow;
+        return memsNow;
+    }
     private playerUnsubscribe(): void {
         this.RADIO_PLAYER?.removeListener('metadataChange', this.boundMetadataFn);
         this.RADIO_PLAYER?.removeListener('error', this.audioPlayerError);
@@ -97,9 +107,14 @@ export class VoiceManager {
         this.NOTIFICATION_CHANNEL.send(error);
         this.leaveVoiceChannel();
     }
+    private canSendMsg(): boolean {
+        if(this.GUILD.me && (this.NOTIFICATION_CHANNEL as TextChannel).permissionsFor(this.GUILD.me).has('SEND_MESSAGES')) return true;
+        else return false;
+    }
+
     private async sendMetadataChange(song: NowPlaying | string): Promise<void> {
         //todo: check if metadata is empty before sending
-        if(song !== null) {
+        if(song !== null && this.canSendMsg()) {
             let responseMessage: MessageEmbed | null = null;
             if(typeof song !== 'string') {
                 const fields: EmbedFieldData[] = [];
