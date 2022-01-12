@@ -13,6 +13,7 @@ class RadiYo {
     readonly NOTIFICATION_CHANNEL_ID : string = this.getEnv('NOTIFICATION_CHANNEL_ID');
     readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY');
     readonly ADMIN_ID: string = this.getEnv('ADMIN_ID');
+    readonly TOPGG_TOKEN: string = this.getEnv('TOPGG_TOKEN');
 
     public VOICE_MANAGERS: Map<string, VoiceManager> = new Map();
     public RADIO_PLAYERS: Map<string, RadioPlayer> = new Map();

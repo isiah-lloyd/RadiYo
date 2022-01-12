@@ -6,6 +6,8 @@ import RadiYo from './RadiYo';
 import { VoiceManager } from './VoiceManager';
 import logger from './util/logger';
 import * as URL from 'url';
+import fetch from 'node-fetch';
+import { generateDependencyReport } from '@discordjs/voice';
 
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES],
     presence: {activities: [{name: 'the radio!', type: ActivityTypes.LISTENING}]},
@@ -315,7 +317,23 @@ client.on('guildDelete', (guild) => {
 client.login(RadiYo.DISCORD_TOKEN);
 RadiYo.CLIENT = client;
 if(process.env.NODE_ENV !== 'development'){RadiYo.downloadFeaturedStations();}
-logger.info('Logged in!');
+client.on('ready', async () => {
+    console.log(generateDependencyReport());
+    logger.info('Logged in!');
+    if(process.env.NODE_ENV !== 'development'){
+        const response = await fetch('https://top.gg/api/bots/895354013116153876/stats', {
+            method: 'post',
+            body: JSON.stringify({'server_count': client.guilds.cache.size}),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': RadiYo.TOPGG_TOKEN
+            }
+        });
+        if(response.ok) {
+            console.log('Posted server count to Top.gg');
+        }
+    }
+});
 
 function exitHandler() {
     logger.info('Exiting...');
