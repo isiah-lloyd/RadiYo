@@ -1,13 +1,20 @@
-import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, SelectMenuInteraction, TextChannel, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, Options, SelectMenuInteraction, TextChannel, VoiceChannel } from 'discord.js';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
 import { VoiceManager } from './VoiceManager';
 import logger from './util/logger';
+import * as URL from 'url';
 
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MESSAGES],
-    presence: {activities: [{name: 'the radio!', type: ActivityTypes.LISTENING}]}
+    presence: {activities: [{name: 'the radio!', type: ActivityTypes.LISTENING}]},
+    makeCache: Options.cacheWithLimits({
+        MessageManager: {
+            maxSize: 20,
+            sweepInterval: 43200
+        }
+    })
 });
 //TODO: This station spammed metadata changes, investigate "Positively The Biggest Hits From The 00's"
 client.on('interactionCreate', async interaction => {
@@ -23,9 +30,31 @@ client.on('interactionCreate', async interaction => {
             if(interaction.options.getSubcommand() === 'play') {
                 await interaction.deferReply();
                 const searchQuery = interaction.options.getString('query');
+                if(searchQuery === 'admin' && interaction.user.id === RadiYo.ADMIN_ID) {
+                    adminCenter(interaction);
+                    return;
+                }
                 if(searchQuery) {
                     const vc = await checkVoiceChannel(interaction);
                     if(!vc) return;
+                    const url = isUrl(searchQuery);
+                    if(url) {
+                        logger.info(`Could not find station for ${searchQuery}, using URL suggestions for hostname ${url.hostname}`);
+                        if(['www.youtube.com','www.spotify.com', 'www.soundcloud.com'].includes(url.hostname)){
+                            interactionSend(interaction, 'RadiYo! does not play music from Youtube, Spotify, or other websites. Instead it plays music from internet radio stations. Try playing a station using an artist name or /radio browse');
+                        }
+                        else {
+                            const row = new MessageActionRow().addComponents(
+                                new MessageButton()
+                                    .setStyle('LINK')
+                                    .setLabel('Add station to RadiYo!')
+                                    .setURL('https://forms.gle/MJppeYCrWobTBBoP6'),
+                            );
+                            interactionSend(interaction, {content: 'RadiYo! plays internet stations from our directory, if you are searching for a specific station try using /radio stsearch <query>. If you can\'t find your station, add it to our directory using the form below.', components: [row]});
+                        }
+                        return;
+                    }
+
                     let station;
                     try {
                         station = await RadioPlayer.searchOne(searchQuery);
@@ -40,12 +69,30 @@ client.on('interactionCreate', async interaction => {
                         vm.attachPlayer(station);
                         interactionSend(interaction, {embeds: [vm.getCurrentStationEmbed()]});
                         if(!checkIfHaveWritePerm(interaction)) {
+                            logger.info(`Cannot send notification in Guild ${interaction.guild.name}`);
                             interactionSend(interaction, 'I don\'t have permission to send messages in this chanel so I won\'t be able to show the currently playing song. Ask an Admin to let me send messages!');
                         }
                     }
                     else {
-                        logger.info(`Could not find station: ${searchQuery}`);
-                        interactionSend(interaction, `Could not find station: ${searchQuery}`);
+                        logger.info(`Could not find station: ${searchQuery}, attempting to find station based off reco2`);
+                        const searchResult = await RadioPlayer.recommendStations(searchQuery, 1, true);
+                        if(searchResult && searchResult.length > 0) {
+                            vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
+                            vm.attachPlayer(searchResult[0]);
+                            interactionSend(interaction, `I couldn't find a station playing ${searchQuery}, playing a station we think you might like.`);
+                            interactionSend(interaction, {embeds: [vm.getCurrentStationEmbed()]});
+                        }
+                        else {
+                            const row = new MessageActionRow().addComponents(
+                                new MessageButton()
+                                    .setStyle('LINK')
+                                    .setLabel('Add station to RadiYo!')
+                                    .setURL('https://forms.gle/MJppeYCrWobTBBoP6'),
+                            );
+                            logger.info(`Could not find station for ${searchQuery}`);
+                            interactionSend(interaction, {content: `Could not find station for "${searchQuery}". Either that station doesn't exist in our directory yet or the artist isn't currently playing.`, components: [row]});
+
+                        }
                     }
                 }
             }
@@ -53,7 +100,9 @@ client.on('interactionCreate', async interaction => {
                 const featuredStations = RadiYo.getFeaturedStations();
                 const topSongs = await RadioPlayer.getTopSongs();
                 for(const category of featuredStations) {
-                    const template = RadiYo.stationListEmbed(category.stations);
+                    //pick 5 random stations from each category
+                    const randomStations = category.stations.sort(() => 0.5 - Math.random()).slice(0,5);
+                    const template = RadiYo.stationListEmbed(randomStations);
                     const embed = template.embed.setTitle(category.title).setDescription(category.description);
                     if(!interaction.replied) {
                         await interaction.reply({embeds: [embed], components: [template.component], ephemeral: true});
@@ -82,6 +131,7 @@ client.on('interactionCreate', async interaction => {
                             template = RadiYo.nowPlayingListEmbed(searchResults);
                         }
                         else {
+                            logger.info(`Could not find station for ${searchQuery}`);
                             interactionSend(interaction, `No results found for ${searchQuery}`);
                             return;
                         }
@@ -92,7 +142,14 @@ client.on('interactionCreate', async interaction => {
                             template = RadiYo.stationListEmbed(searchResults);
                         }
                         else {
-                            interactionSend(interaction, `No results found for ${searchQuery}`);
+                            const row = new MessageActionRow().addComponents(
+                                new MessageButton()
+                                    .setStyle('LINK')
+                                    .setLabel('Add station to RadiYo!')
+                                    .setURL('https://forms.gle/MJppeYCrWobTBBoP6'),
+                            );
+                            logger.info(`Could not find station for ${searchQuery}`);
+                            interactionSend(interaction, {content: `Could not find station for "${searchQuery}". You can add a station to our directory using the form below.`, components: [row]});
                             return;
                         }
                     }
@@ -102,6 +159,7 @@ client.on('interactionCreate', async interaction => {
                             template = RadiYo.nowPlayingListEmbed(searchResults);
                         }
                         else {
+                            logger.info(`Could not find station for ${searchQuery}`);
                             interactionSend(interaction, `No results found for ${searchQuery}`);
                             return;
                         }
@@ -110,6 +168,9 @@ client.on('interactionCreate', async interaction => {
                         const responseMessage = template.embed
                             .setTitle(`Search Results for ${searchQuery}`);
                         interaction.editReply({embeds: [responseMessage], components: [template.component]});
+                        if(searchCategory === 'stsearch') {
+                            interaction.followUp('Couldn\'t find the station you were looking for? Submit a new station using this form: https://forms.gle/EW1xsqhQr31Q8s1t5');
+                        }
                     }
                     else {
                         logger.error('There was an error generating template. Template: ', template);
@@ -147,7 +208,7 @@ client.on('interactionCreate', async interaction => {
                     new MessageButton()
                         .setStyle('LINK')
                         .setLabel('Support Server')
-                        .setURL('https://discord.gg/s8nqYm76Xa')
+                        .setURL('https://discord.gg/aQ4sZ9cJcb')
                 );
                 interaction.reply({embeds: [embed], components: [row]});
             }
@@ -163,10 +224,13 @@ client.on('interactionCreate', async interaction => {
                     vm.leaveVoiceChannel();
                 }
                 else {
+                    logger.info(`${interaction.user.username} is not allowed to stop stream`);
                     interaction.reply({content:'You must be in the voice channel to stop the groove!',ephemeral: true});
                 }
             }
             else {
+                // Stop button was not edited out of ended stream. Remove useless button
+                logger.info(`${interaction.user.username} is pressed a useless button.`);
                 const embed = interaction.message.embeds[0];
                 interaction.update({embeds: [embed], components: []});
             }
@@ -268,6 +332,7 @@ async function checkVoiceChannel(interaction: CommandInteraction | SelectMenuInt
     if(gmaybe instanceof GuildMember) {
         gm = gmaybe;
         if(!gm.voice.channel) {
+            logger.info(`${interaction.user.username} is not in a voice channel, not starting stream.`);
             interactionSend(interaction, 'You must be in a voice channel to play the radio!');
             return false;
         }
@@ -312,6 +377,26 @@ function checkIfHaveWritePerm(interaction: Interaction) {
         return false;
     }
 }
+function isUrl(str: string) {
+    try {
+        return new URL.URL(str);
+    } catch {
+        return false;
+    }
+}
+function adminCenter(interaction: CommandInteraction) {
+    let radioPlayStatus = 'Radio Players:\nStation Title | Listener Count';
+    RadiYo.RADIO_PLAYERS.forEach(player => {
+        radioPlayStatus += `\n ${player.CURRENT_STATION.text} | ${player.listenerCount('metadataChange')}`;
+
+    });
+    let voiceManagerStatus = 'Voice Managers\nStation | Guild | Time | Members';
+    RadiYo.VOICE_MANAGERS.forEach(manager => {
+        voiceManagerStatus = `\n ${manager.STATION.text} | ${manager.GUILD.name} | ${manager.getElapsedTime()} | ${manager.getMembersInChannel()} (${manager.maxMembers})`;
+    });
+    interaction.followUp(radioPlayStatus);
+    interaction.followUp(voiceManagerStatus);
+}
 
 /* function getCmdOptions(interaction: CommandInteraction) : string {
     let string = '';
@@ -328,6 +413,8 @@ function checkIfHaveWritePerm(interaction: Interaction) {
 
 //catches ctrl+c event
 process.on('SIGINT', exitHandler);
+
+
 
 // catches "kill pid" (for example: nodemon restart)
 //process.on('SIGUSR1', exitHandler);

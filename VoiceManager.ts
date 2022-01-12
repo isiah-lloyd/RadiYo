@@ -17,7 +17,7 @@ export class VoiceManager {
     private boundMetadataFn = this.sendMetadataChange.bind(this);
     private last_msg: MessageEmbed | null = null;
     private timeStarted = Date.now();
-    private maxMembers = 0;
+    public maxMembers = 0;
     constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
@@ -62,6 +62,9 @@ export class VoiceManager {
             return false;
         }
 
+    }
+    public getElapsedTime(): string {
+        return ((Date.now() - this.timeStarted )/ 60000).toFixed(2);
     }
     public leaveVoiceChannel(): void {
         logger.info(`Stopped stream in ${this.GUILD.name}, time elapsed ${((Date.now() - this.timeStarted )/ 60000).toFixed(2)} mins. Max num of members: ${this.maxMembers}`);

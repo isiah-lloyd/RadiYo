@@ -1,13 +1,11 @@
 import { AudioPlayer, AudioPlayerState, AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, NoSubscriberBehavior } from '@discordjs/voice';
-//import xmlParse from 'fast-xml-parser';
 import fetch, { FetchError, Headers } from 'node-fetch';
 import events from 'events';
-import URL from 'url';
-//import STATIC_STATIONS from './static_stations.json';
 import { autocompleteAPIResponse, autocompleteAPIResponseArray, NowPlaying, PlaylistAPIResponse, reco2APIResponse, Station } from './util/interfaces';
 import { SpliceMetadata } from './util/SpliceMetadata';
 import RadiYo from './RadiYo';
 import logger from './util/logger';
+import * as https  from 'https';
 
 export class RadioPlayer extends events.EventEmitter {
     public NOW_PLAYING: NowPlaying = {} as NowPlaying;
@@ -20,7 +18,7 @@ export class RadioPlayer extends events.EventEmitter {
                 noSubscriber: NoSubscriberBehavior.Stop,
             },
         });
-        this.PLAYER.on('error', (error) => {console.error(error.message);});
+        this.PLAYER.on('error', (error) => {logger.error(error.message);});
         this.PLAYER.on('stateChange', this.stateHandler);
         this.PLAYER.on('unsubscribe', () => {
             logger.debug('A VoiceConnection unsubscribed from a player');
@@ -34,42 +32,47 @@ export class RadioPlayer extends events.EventEmitter {
 
     public async play(station: Station): Promise<void> {
         this.CURRENT_STATION = station;
-        const streamDownloadURL = new URL.URL(station.streamDownloadURL);
-        if(streamDownloadURL.protocol === 'https:') {
-            streamDownloadURL.protocol = 'http:';
-        }
         let audioStream;
         try {
-            audioStream = await fetch(streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+            if(station.streamDownloadURL.substring(0,4) === 'https') {
+                audioStream = await fetch(station.streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'}), agent: new https.Agent({rejectUnauthorized: false})});
+            }
+            else {
+                audioStream = await fetch(station.streamDownloadURL, {headers: new Headers({'Icy-Metadata': '1'})});
+            }
         }
         catch(err: unknown) {
             if(err instanceof FetchError) {
-                logger.error('FetchError encountered while streaming', err);
-                this.emit('error', `There was an error while streaming this station! Please try another station. ${err.code}`);
+                logger.error('FetchError encountered while streaming, trying ffmpeg', JSON.stringify(err));
+                //this.emit('error', `There was an error while streaming this station! Please try another station. ${err.code}`);
             }
             else {
-                logger.error('FetchError encountered while streaming', err);
+                logger.error('Error encountered while streaming, trying ffmpeg', JSON.stringify(err));
+                //this.emit('error', `There was an error while streaming this station! Please try another station. ${err}`);
             }
+        }
+        if(audioStream && !audioStream.ok) {
+            this.emit('error', `There was an error while streaming this station! Please try another station. HTTP ${audioStream.status}`);
             return;
         }
-        if(!audioStream.ok) {
-            this.emit('error', `There was an error while streaming this station! Please try another station. HTTP ${audioStream.status}`);
-        }
-        const metaInt = audioStream.headers.get('icy-metaint');
+        const metaInt = audioStream?.headers.get('icy-metaint');
         let resource: AudioResource;
-        if(metaInt) {
+        if(audioStream && metaInt) {
+            logger.info('Creating audio resource using splice');
             const spliceMetadata = new SpliceMetadata(parseInt(metaInt), this.updateCurrentPlaying.bind(this));
             audioStream.body.pipe(spliceMetadata);
             resource = createAudioResource(spliceMetadata);
         }
         else {
+            logger.info('Creating audio resource using ffmpeg');
             resource = createAudioResource(station.streamDownloadURL);
         }
         this.PLAYER.play(resource);
     }
     private stateHandler(oldState: AudioPlayerState, newState: AudioPlayerState) {
+        logger.debug(`State changed from ${oldState.status} to ${newState.status}`);
         if(this.listenerCount('metadataChange') !== 0 && oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
-            logger.debug('Stream went to idle from playing with > 0 subscribers, restarting stream.');
+            logger.info('Stream went to idle from playing with > 0 subscribers, restarting stream.');
             this.play(this.CURRENT_STATION);
         }
     }
@@ -183,7 +186,7 @@ export class RadioPlayer extends events.EventEmitter {
         station.genre = stationInfo.genre;
         return station;
     }
-    static async recommendStations(artist: string, limit : number | null = 5): Promise<Station[] | null> {
+    static async recommendStations(artist: string, limit : number | null = 5, getStationInfo = false): Promise<Station[] | null> {
         const stations: Station[] = [];
         let counter = 0;
         const playlistResults = await(await fetch(`http://api.dar.fm/reco2.php?callback=json&artist=^${encodeURIComponent(artist)}*&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json() as reco2APIResponse;
@@ -194,8 +197,16 @@ export class RadioPlayer extends events.EventEmitter {
                 station.nowPlaying = {title: '', artist: ''};
                 station.id = result.playlist.station_id;
                 station.text = result.playlist.callsign;
+                station.streamDownloadURL = `http://stream.dar.fm/${station.id}`;
                 station.nowPlaying.title = result.songtitle;
                 station.nowPlaying.artist = result.songartist;
+                if(getStationInfo){
+                    const stationInfoResult = await(await fetch(`http://api.dar.fm/darstations.php?callback=json&station_id=${station.id}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json();
+                    const stationInfo = stationInfoResult.result[0].stations[0];
+                    station.image = stationInfo.station_image;
+                    station.subtext = stationInfo.slogan ? stationInfo.slogan : stationInfo.description;
+                    station.genre = stationInfo.genre;
+                }
                 stations.push(station);
                 counter++;
             }

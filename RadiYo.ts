@@ -12,6 +12,7 @@ class RadiYo {
     readonly DISCORD_GUILD_ID : string = this.getEnv('DISCORD_GUILD_ID');
     readonly NOTIFICATION_CHANNEL_ID : string = this.getEnv('NOTIFICATION_CHANNEL_ID');
     readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY');
+    readonly ADMIN_ID: string = this.getEnv('ADMIN_ID');
 
     public VOICE_MANAGERS: Map<string, VoiceManager> = new Map();
     public RADIO_PLAYERS: Map<string, RadioPlayer> = new Map();
@@ -66,7 +67,7 @@ class RadiYo {
     }
     public deleteRadioPlayer(station: Station): boolean {
         const v = this.RADIO_PLAYERS.delete(station.streamDownloadURL);
-        logger.debug(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
+        logger.info(`DELETE (${v}): There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
         return v;
     }
     public getBotUser(): ClientUser {
@@ -122,7 +123,6 @@ class RadiYo {
         if(stations) {
             const length = stations.length <= 5 ? stations.length : 5;
             for(let i = 0; i < length; i++) {
-                console.log(stations[i]);
                 const np = stations[i].nowPlaying;
                 if(stations[i] && np) {
                     const label = `${np.artist} - ${np.title}`.substring(0, 100);
@@ -190,6 +190,22 @@ class RadiYo {
             this.downloadFeaturedStations();
             return this.featuredStations;
         }
+    }
+
+    public getCurrentlyPlayingStations(): Station[] {
+        const stations: Station[] = [];
+        this.RADIO_PLAYERS.forEach(player => {
+            if(player.listenerCount('metadataChange') === 0) {
+                logger.info(`Found zombie station ${player.CURRENT_STATION.text}, deleting`);
+                this.deleteRadioPlayer(player.CURRENT_STATION);
+            }
+            else {
+                const station = player.CURRENT_STATION;
+                station.listenerCount = player.listenerCount('metadataChange');
+                stations.push(station);
+            }
+        });
+        return stations;
     }
 }
 

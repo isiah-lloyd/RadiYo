@@ -17,6 +17,7 @@ export interface Station {
         title: string;
         artist: string;
     }
+    listenerCount?: number;
 }
 
 export interface FeaturedStation {

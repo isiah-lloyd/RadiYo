@@ -2,11 +2,11 @@
     {
         "title": "SomaFM",
         "description": "SomaFM is the godfather of independent internet radio. Since 2000 SomaFM has been ad-free and listener supported. Here are a select few of their 40+ stations.",
-        "station_ids": ["88747","80309","70621", "110950", "116821"]
+        "station_ids": ["88747","80309","70621", "110950", "116821", "8303", "8296", "8304", "65424", "68185", "84568", "85089", "93958", "116821", "116936"]
     },
     {
         "title": "Featured Stations",
         "description": "⭐ Handpicked stations that we like",
-        "station_ids": ["165799", "110568"]
+        "station_ids": ["165799", "110568", "121830"]
     }
 ]
