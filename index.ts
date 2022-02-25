@@ -410,7 +410,7 @@ function adminCenter(interaction: CommandInteraction) {
     });
     let voiceManagerStatus = 'Voice Managers\nStation | Guild | Time | Members';
     RadiYo.VOICE_MANAGERS.forEach(manager => {
-        voiceManagerStatus = `\n ${manager.STATION.text} | ${manager.GUILD.name} | ${manager.getElapsedTime()} | ${manager.getMembersInChannel()} (${manager.maxMembers})`;
+        voiceManagerStatus += `\n ${manager.STATION.text} | ${manager.GUILD.name} | ${manager.getElapsedTime()} | ${manager.getMembersInChannel()} (${manager.maxMembers})`;
     });
     interaction.followUp(radioPlayStatus);
     interaction.followUp(voiceManagerStatus);
@@ -431,8 +431,6 @@ function adminCenter(interaction: CommandInteraction) {
 
 //catches ctrl+c event
 process.on('SIGINT', exitHandler);
-
-
 
 // catches "kill pid" (for example: nodemon restart)
 //process.on('SIGUSR1', exitHandler);
