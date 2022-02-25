@@ -220,6 +220,10 @@ client.on('interactionCreate', async interaction => {
         logger.info(`${interaction.user.username} pressed ${interaction.customId} in ${interaction.guild.name} guild`);
         const vm = RadiYo.getVoiceManager(interaction.guild);
         if(interaction.customId === 'stop_stream') {
+            if(interaction.guild.id === '748026840517574707' && interaction.user.id !== '179705637649776640') {
+                interaction.reply('You don\'t have permission for that! (Hey RevUC Participant! Want a project to hack on? Check me out on Github or ping me @Isiah)');
+                return;
+            }
             if(vm) {
                 if(vm.isUserInVC(interaction.user)) {
                     interaction.reply(`${interaction.user} has stopped the stream`);
@@ -296,7 +300,7 @@ client.on('interactionCreate', async interaction => {
 });
 client.on('voiceStateUpdate', (_, newState) => {
     const vm = RadiYo.getVoiceManager(newState.guild);
-    if (vm && vm.getMembersInChannel() === 0) {
+    if (newState.guild.id !== '748026840517574707' && vm && vm.getMembersInChannel() === 0) {
         vm.sendLeavingMsg();
         logger.info(`Leaving channel in ${vm.GUILD.name} due to empty voice channel`);
         vm.leaveVoiceChannel();
