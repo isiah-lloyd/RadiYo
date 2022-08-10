@@ -7,10 +7,10 @@ import logger from './util/logger';
 import { VoiceManager } from './VoiceManager';
 
 class RadiYo {
-    readonly DISCORD_TOKEN : string = this.getEnv('DISCORD_TOKEN');
-    readonly DISCORD_OAUTH_CLIENT_ID : string = this.getEnv('DISCORD_OAUTH_CLIENT_ID');
-    readonly DISCORD_GUILD_ID : string = this.getEnv('DISCORD_GUILD_ID');
-    readonly NOTIFICATION_CHANNEL_ID : string = this.getEnv('NOTIFICATION_CHANNEL_ID');
+    readonly DISCORD_TOKEN: string = this.getEnv('DISCORD_TOKEN');
+    readonly DISCORD_OAUTH_CLIENT_ID: string = this.getEnv('DISCORD_OAUTH_CLIENT_ID');
+    readonly DISCORD_GUILD_ID: string = this.getEnv('DISCORD_GUILD_ID');
+    readonly NOTIFICATION_CHANNEL_ID: string = this.getEnv('NOTIFICATION_CHANNEL_ID');
     readonly RADIO_DIRECTORY_KEY: string = this.getEnv('RADIO_DIRECTORY_KEY');
     readonly ADMIN_ID: string = this.getEnv('ADMIN_ID');
     readonly TOPGG_TOKEN: string = this.getEnv('TOPGG_TOKEN');
@@ -22,7 +22,7 @@ class RadiYo {
 
     private getEnv(envVar: string): string {
         const p = process.env[envVar];
-        if(p !== undefined){
+        if (p !== undefined) {
             return p;
         }
         else {
@@ -31,12 +31,12 @@ class RadiYo {
     }
     public getVoiceManager(guild: Guild): VoiceManager | null {
         const player = this.VOICE_MANAGERS.get(guild.id);
-        if(player) return player; else return null;
+        if (player) return player; else return null;
     }
-    public createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) : VoiceManager {
+    public createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel): VoiceManager {
         const rs = this.getVoiceManager(guild);
-        if(rs) {
-            if(voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
+        if (rs) {
+            if (voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
                 rs.leaveVoiceChannel();
                 const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
                 this.VOICE_MANAGERS.set(guild.id, newVm);
@@ -56,11 +56,11 @@ class RadiYo {
         logger.debug(`DELETE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
         return v;
     }
-    public getRadioPlayer(station: Station): RadioPlayer {
+    public async getRadioPlayer(station: Station): Promise<RadioPlayer> {
         let rp = this.RADIO_PLAYERS.get(station.streamDownloadURL);
-        if(!rp) {
+        if (!rp) {
             rp = new RadioPlayer();
-            rp.play(station);
+            await rp.play(station);
             this.RADIO_PLAYERS.set(station.streamDownloadURL, rp);
         }
         logger.info(`GET: There are currently ${this.RADIO_PLAYERS.size} radio players in memory`);
@@ -73,23 +73,26 @@ class RadiYo {
     }
     public getBotUser(): ClientUser {
         const user = this.CLIENT?.user;
-        if(user) return user;
+        if (user) return user;
         else throw new Error('Could not fetch bot user');
     }
-    public newMsgEmbed() : MessageEmbed {
+    public newMsgEmbed(): MessageEmbed {
         return new MessageEmbed()
             .setAuthor('RadiYo!',
                 'https://cdn.discordapp.com/avatars/895354013116153876/90d756ddeab4c129d89b9f60df44ba95.png?size=32',
                 'https://radiyobot.com');
     }
-    public stationListEmbed(stations: Station[]) : {embed: MessageEmbed, component: MessageActionRow} {
+    public stationListEmbed(stations: Station[]): { embed: MessageEmbed, component: MessageActionRow } {
         const msg = this.newMsgEmbed();
         const fields = [];
         const selectOptions: MessageSelectOptionData[] = [];
-        if(stations) {
+        if (stations) {
             const length = stations.length <= 5 ? stations.length : 5;
-            for(let i = 0; i < length; i++) {
-                if(stations[i]) {
+            for (let i = 0; i < length; i++) {
+                const id = stations[i].id;
+                const genre = stations[i].genre;
+                const subtext = stations[i].subtext;
+                if (stations[i] && id) {
                     const nameObj = {
                         name: 'Name',
                         value: stations[i].text,
@@ -97,16 +100,16 @@ class RadiYo {
                     };
                     const descObj = {
                         name: 'Description',
-                        value: stations[i].subtext ? stations[i].subtext.substring(0,1024) : 'N/A',
+                        value: subtext ? subtext.substring(0, 1024) : 'N/A',
                         inline: true
                     };
                     const genreObj = {
                         name: 'Genre',
-                        value: stations[i].genre ? stations[i].genre : 'N/A',
+                        value: genre ? genre : 'N/A',
                         inline: true
                     };
                     fields.push(nameObj, descObj, genreObj);
-                    selectOptions.push({label: stations[i].text.substring(0,100), value: stations[i].id});
+                    selectOptions.push({ label: stations[i].text.substring(0, 100), value: id });
                 }
             }
         }
@@ -115,17 +118,18 @@ class RadiYo {
                 .setPlaceholder('Select station to play...')
                 .addOptions(selectOptions)
         );
-        return {embed:msg.addFields(fields), component: row};
+        return { embed: msg.addFields(fields), component: row };
     }
-    public nowPlayingListEmbed(stations: Station[]) : {embed: MessageEmbed, component: MessageActionRow} {
+    public nowPlayingListEmbed(stations: Station[]): { embed: MessageEmbed, component: MessageActionRow } {
         const msg = this.newMsgEmbed();
         const fields = [];
         const selectOptions: MessageSelectOptionData[] = [];
-        if(stations) {
+        if (stations) {
             const length = stations.length <= 5 ? stations.length : 5;
-            for(let i = 0; i < length; i++) {
+            for (let i = 0; i < length; i++) {
                 const np = stations[i].nowPlaying;
-                if(stations[i] && np) {
+                const id = stations[i].id;
+                if (stations[i] && np && id) {
                     const label = `${np.artist} - ${np.title}`.substring(0, 100);
                     const nameObj = {
                         name: 'Name',
@@ -144,7 +148,7 @@ class RadiYo {
                     };
 
                     fields.push(nameObj, npObj, nopObj);
-                    selectOptions.push({label: label, value: stations[i].id});
+                    selectOptions.push({ label: label, value: id });
                 }
             }
         }
@@ -153,7 +157,7 @@ class RadiYo {
                 .setPlaceholder('Select song to play...')
                 .addOptions(selectOptions)
         );
-        return {embed:msg.addFields(fields), component: row};
+        return { embed: msg.addFields(fields), component: row };
     }
     public downloadFeaturedStations(): void {
         logger.debug('Downloading Featured Stations');
@@ -169,20 +173,20 @@ class RadiYo {
                         result = await RadioPlayer.searchByStationId(stationId);
                         temp.stations.push(result);
                     }
-                    catch(err) {
+                    catch (err) {
                         throw new Error(`There was an issue downloading a featured station ${err}`);
                     }
                 });
                 this.featuredStations.push(temp);
             });
         }
-        catch(err) {
+        catch (err) {
             logger.error('There was an error downloading featured stations', err);
             this.featuredStations = [];
         }
     }
     public getFeaturedStations(): FeaturedStation[] {
-        if(this.featuredStations.length !== 0) {
+        if (this.featuredStations.length !== 0) {
             return this.featuredStations;
         }
         else {
@@ -196,7 +200,7 @@ class RadiYo {
     public getCurrentlyPlayingStations(): Station[] {
         const stations: Station[] = [];
         this.RADIO_PLAYERS.forEach(player => {
-            if(player.listenerCount('metadataChange') === 0) {
+            if (player.listenerCount('metadataChange') === 0) {
                 logger.info(`Found zombie station ${player.CURRENT_STATION.text}, deleting`);
                 this.deleteRadioPlayer(player.CURRENT_STATION);
             }

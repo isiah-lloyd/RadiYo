@@ -4,15 +4,15 @@ export interface NowPlaying {
     albumArtUrl: string;
 }
 export interface Station {
-    id: string;
-    image: string;
-    subtext: string;
+    id?: string;
+    image?: string;
+    subtext?: string;
     //title of station
     text: string;
     streamDownloadURL: string,
     //link to m3u file
-    URL: string,
-    genre: string
+    URL?: string,
+    genre?: string
     nowPlaying?: {
         title: string;
         artist: string;
