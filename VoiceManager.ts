@@ -18,12 +18,11 @@ export class VoiceManager {
     private last_msg: MessageEmbed | null = null;
     private timeStarted = Date.now();
     public maxMembers = 0;
-    constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, station: Station) {
+    constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, _station: Station) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
         this.VOICE_CHANNEL = voiceChannel;
         this.joinVoiceChannel();
-        this.attachPlayer(station);
     }
     private joinVoiceChannel() {
         if (!this.VOICE_CHANNEL) {
@@ -95,7 +94,7 @@ export class VoiceManager {
         if (this.STATION.genre) {
             embed.setFields({ name: 'Genre', value: this.STATION.genre })
         }
-        return msgEmb;
+        return { embeds: [embed], components: [] };
     }
     public sendLeavingMsg(): void {
         if (this.canSendMsg()) this.NOTIFICATION_CHANNEL.send(`I'm all alone! Leaving #${this.VOICE_CHANNEL.name}`);

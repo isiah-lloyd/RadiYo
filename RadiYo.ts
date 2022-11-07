@@ -33,7 +33,7 @@ class RadiYo {
         const player = this.VOICE_MANAGERS.get(guild.id);
         if (player) return player; else return null;
     }
-    public createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, station: Station): VoiceManager {
+    public async createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, station: Station): Promise<VoiceManager> {
         const rs = this.getVoiceManager(guild);
         if (rs) {
             if (voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
@@ -46,6 +46,7 @@ class RadiYo {
         }
         else {
             const newVm = new VoiceManager(guild, notificationChannel, voiceChannel, station);
+            await newVm.attachPlayer(station);
             this.VOICE_MANAGERS.set(guild.id, newVm);
             logger.debug(`CREATE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
             return newVm;

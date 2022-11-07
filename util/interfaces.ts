@@ -4,9 +4,9 @@ export interface NowPlaying {
     albumArtUrl: string;
 }
 export interface Station {
-    id?: string;
+    id: string;
     image?: string;
-    subtext?: string;
+    subtext: string;
     //title of station
     text: string;
     streamDownloadURL: string,
