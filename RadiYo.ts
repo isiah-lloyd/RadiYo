@@ -39,10 +39,14 @@ class RadiYo {
             if (voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
                 rs.leaveVoiceChannel();
                 const newVm = new VoiceManager(guild, notificationChannel, voiceChannel, station);
+                await newVm.attachPlayer(station);
                 this.VOICE_MANAGERS.set(guild.id, newVm);
                 return newVm;
             }
-            return rs;
+            else {
+                await rs.attachPlayer(station);
+                return rs;
+            }
         }
         else {
             const newVm = new VoiceManager(guild, notificationChannel, voiceChannel, station);
