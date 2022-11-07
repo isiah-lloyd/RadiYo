@@ -20,7 +20,7 @@ export class RadioPlayer extends events.EventEmitter {
             },
         });
         this.PLAYER.on('error', (error) => { logger.error(error.message); });
-        this.PLAYER.on('stateChange', this.stateHandler);
+        this.PLAYER.on<'stateChange'>('stateChange', this.stateHandler);
         this.PLAYER.on('unsubscribe', () => {
             logger.debug('A VoiceConnection unsubscribed from a player');
             logger.debug('Current subscribers: ', this.listenerCount('metadataChange'));
@@ -52,7 +52,7 @@ export class RadioPlayer extends events.EventEmitter {
         if (!station.id) {
             const title = audioStream?.headers.get('icy-name');
             if (!title) {
-                this.emit('error', `This URL doesn't seem to be a stream. The URL must point direclty to a MP3 stream`);
+                this.emit('error', `This URL doesn't seem to be a stream. The URL must point directly to a MP3 stream`);
             }
             else {
                 station.text = title;
@@ -182,11 +182,14 @@ export class RadioPlayer extends events.EventEmitter {
         station.streamDownloadURL = `http://stream.dar.fm/${stationId}`;
         const stationInfoResult = await (await fetch(`http://api.dar.fm/darstations.php?callback=json&station_id=${stationId}&partner_token=${RadiYo.RADIO_DIRECTORY_KEY}`)).json();
         const stationInfo = stationInfoResult.result[0].stations[0];
+        station.nowPlaying = { title: '', artist: '' };
         station.id = stationId;
         station.text = stationInfo.callsign;
         station.image = stationInfo.station_image;
         station.subtext = stationInfo.slogan ? stationInfo.slogan : stationInfo.description;
         station.genre = stationInfo.genre;
+        station.nowPlaying.title = stationInfo.songtitle;
+        station.nowPlaying.artist = stationInfo.songartist;
         return station;
     }
     static async recommendStations(artist: string, limit: number | null = 5, getStationInfo = false): Promise<Station[] | null> {

@@ -33,19 +33,19 @@ class RadiYo {
         const player = this.VOICE_MANAGERS.get(guild.id);
         if (player) return player; else return null;
     }
-    public createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel): VoiceManager {
+    public createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, station: Station): VoiceManager {
         const rs = this.getVoiceManager(guild);
         if (rs) {
             if (voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
                 rs.leaveVoiceChannel();
-                const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
+                const newVm = new VoiceManager(guild, notificationChannel, voiceChannel, station);
                 this.VOICE_MANAGERS.set(guild.id, newVm);
                 return newVm;
             }
             return rs;
         }
         else {
-            const newVm = new VoiceManager(guild, notificationChannel, voiceChannel);
+            const newVm = new VoiceManager(guild, notificationChannel, voiceChannel, station);
             this.VOICE_MANAGERS.set(guild.id, newVm);
             logger.debug(`CREATE: There are currently ${this.VOICE_MANAGERS.size} voice managers in memory`);
             return newVm;
@@ -129,8 +129,13 @@ class RadiYo {
             for (let i = 0; i < length; i++) {
                 const np = stations[i].nowPlaying;
                 const id = stations[i].id;
-                if (stations[i] && np && id) {
-                    const label = `${np.artist} - ${np.title}`.substring(0, 100);
+                if (stations[i] && np) {
+                    let label = `${np.artist} - ${np.title}`.substring(0, 100);
+                    if (np.title) {
+                        label = `${np.artist} - ${np.title}`.substring(0, 100);
+                    } else {
+                        label = stations[i].subtext ? stations[i].subtext.substring(0, 1024) : 'N/A';
+                    }
                     const nameObj = {
                         name: 'Name',
                         value: stations[i].text,

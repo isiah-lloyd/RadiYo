@@ -1,5 +1,5 @@
 import { DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, PlayerSubscription, VoiceConnection } from '@discordjs/voice';
-import { EmbedFieldData, Guild, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, TextChannel, User, VoiceChannel } from 'discord.js';
+import { EmbedFieldData, Guild, InteractionReplyOptions, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, TextChannel, User, VoiceChannel } from 'discord.js';
 import { decode as htmlDecode } from 'html-entities';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
@@ -18,11 +18,12 @@ export class VoiceManager {
     private last_msg: MessageEmbed | null = null;
     private timeStarted = Date.now();
     public maxMembers = 0;
-    constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel) {
+    constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, station: Station) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
         this.VOICE_CHANNEL = voiceChannel;
         this.joinVoiceChannel();
+        this.attachPlayer(station);
     }
     private joinVoiceChannel() {
         if (!this.VOICE_CHANNEL) {
@@ -83,16 +84,16 @@ export class VoiceManager {
     public getVoiceConnection(): VoiceConnection | undefined {
         return getVoiceConnection(this.GUILD.id);
     }
-    public getCurrentStationEmbed(): MessageEmbed {
-        const msgEmb = RadiYo.newMsgEmbed()
+    public async getCurrentStationEmbed(): Promise<InteractionReplyOptions> {
+        const embed = RadiYo.newMsgEmbed()
             .setTitle(`Now Playing ${this.STATION.text} in #${this.VOICE_CHANNEL.name}`)
             .setDescription(htmlDecode(this.STATION.subtext))
             .setFooter('Search powered by onrad.io');
         if (this.STATION.image) {
-            msgEmb.setThumbnail(this.STATION.image)
+            embed.setThumbnail(this.STATION.image)
         }
         if (this.STATION.genre) {
-            msgEmb.setFields({ name: 'Genre', value: this.STATION.genre })
+            embed.setFields({ name: 'Genre', value: this.STATION.genre })
         }
         return msgEmb;
     }

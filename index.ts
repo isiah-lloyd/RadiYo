@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client, CommandInteraction, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, Options, SelectMenuInteraction, TextChannel, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Client, CommandInteraction, Guild, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, Options, SelectMenuInteraction, TextBasedChannels, TextChannel, VoiceChannel } from 'discord.js';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
@@ -6,7 +6,6 @@ import RadiYo from './RadiYo';
 import { VoiceManager } from './VoiceManager';
 import logger from './util/logger';
 import * as URL from 'url';
-import fetch from 'node-fetch';
 import { generateDependencyReport } from '@discordjs/voice';
 import { Station } from './util/interfaces';
 
@@ -66,35 +65,20 @@ client.on('interactionCreate', async interaction => {
                             return;
                         }
                     }
-                    if (station && station.streamDownloadURL) {
-                        vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
-                        await vm.attachPlayer(station);
-                        interactionSend(interaction, { embeds: [vm.getCurrentStationEmbed()] });
-                        if (!checkIfHaveWritePerm(interaction)) {
-                            logger.info(`Cannot send notification in Guild ${interaction.guild.name}`);
-                            interactionSend(interaction, 'I don\'t have permission to send messages in this chanel so I won\'t be able to show the currently playing song. Ask an Admin to let me send messages!');
-                        }
-                    }
-                    else {
+                    if (!station || !station.streamDownloadURL) {
                         logger.info(`Could not find station: ${searchQuery}, attempting to find station based off reco2`);
                         const searchResult = await RadioPlayer.recommendStations(searchQuery, 1, true);
                         if (searchResult && searchResult.length > 0) {
-                            vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
-                            vm.attachPlayer(searchResult[0]);
-                            interactionSend(interaction, `I couldn't find a station playing ${searchQuery}, playing a station we think you might like.`);
-                            interactionSend(interaction, { embeds: [vm.getCurrentStationEmbed()] });
+                            station = searchResult[0];
                         }
                         else {
-                            const row = new MessageActionRow().addComponents(
-                                new MessageButton()
-                                    .setStyle('LINK')
-                                    .setLabel('Add station to RadiYo!')
-                                    .setURL('https://forms.gle/MJppeYCrWobTBBoP6'),
-                            );
                             logger.info(`Could not find station for ${searchQuery}`);
-                            interactionSend(interaction, { content: `Could not find station for "${searchQuery}". Either that station doesn't exist in our directory yet or the artist isn't currently playing.`, components: [row] });
+                            interactionSend(interaction, { content: `Could not find station for "${searchQuery}". Either that station doesn't exist in our directory yet or the artist isn't currently playing.` });
 
                         }
+                    }
+                    if (station) {
+                        createVoiceManager(interaction.guild, interaction.channel, vc, station, interaction);
                     }
                 }
             }
@@ -144,14 +128,8 @@ client.on('interactionCreate', async interaction => {
                             template = RadiYo.stationListEmbed(searchResults);
                         }
                         else {
-                            const row = new MessageActionRow().addComponents(
-                                new MessageButton()
-                                    .setStyle('LINK')
-                                    .setLabel('Add station to RadiYo!')
-                                    .setURL('https://forms.gle/MJppeYCrWobTBBoP6'),
-                            );
                             logger.info(`Could not find station for ${searchQuery}`);
-                            interactionSend(interaction, { content: `Could not find station for "${searchQuery}". You can add a station to our directory using the form below.`, components: [row] });
+                            interactionSend(interaction, { content: `Could not find station for "${searchQuery}"` });
                             return;
                         }
                     }
@@ -170,9 +148,6 @@ client.on('interactionCreate', async interaction => {
                         const responseMessage = template.embed
                             .setTitle(`Search Results for ${searchQuery}`);
                         interaction.editReply({ embeds: [responseMessage], components: [template.component] });
-                        if (searchCategory === 'stsearch') {
-                            interaction.followUp('Couldn\'t find the station you were looking for? Submit a new station using this form: https://forms.gle/EW1xsqhQr31Q8s1t5');
-                        }
                     }
                     else {
                         logger.error('There was an error generating template. Template: ', template);
@@ -220,10 +195,6 @@ client.on('interactionCreate', async interaction => {
         logger.info(`${interaction.user.username} pressed ${interaction.customId} in ${interaction.guild.name} guild`);
         const vm = RadiYo.getVoiceManager(interaction.guild);
         if (interaction.customId === 'stop_stream') {
-            if (interaction.guild.id === '748026840517574707' && interaction.user.id !== '179705637649776640') {
-                interaction.reply('You don\'t have permission for that! (Hey RevUC Participant! Want a project to hack on? Check me out on Github or ping me @Isiah)');
-                return;
-            }
             if (vm) {
                 if (vm.isUserInVC(interaction.user)) {
                     interaction.reply(`${interaction.user} has stopped the stream`);
@@ -247,7 +218,6 @@ client.on('interactionCreate', async interaction => {
     else if (interaction.isSelectMenu()) {
         logger.info(`${interaction.user.username} used ${interaction.customId} select menu. Selecting ${interaction.values[0]}`);
         if (interaction.customId === 'choose_station') {
-            let vm: VoiceManager | null;
             const vc = await checkVoiceChannel(interaction);
             if (!vc) return;
             let station;
@@ -260,12 +230,7 @@ client.on('interactionCreate', async interaction => {
                 return;
             }
             if (station && station.streamDownloadURL) {
-                vm = RadiYo.createVoiceManager(interaction.guild, interaction.channel, vc);
-                vm.attachPlayer(station);
-                interactionSend(interaction, { embeds: [vm.getCurrentStationEmbed()] });
-                if (!checkIfHaveWritePerm(interaction)) {
-                    interactionSend(interaction, 'I don\'t have permission to send messages in this chanel so I won\'t be able to show the currently playing song. Ask an Admin to let me send messages!');
-                }
+                createVoiceManager(interaction.guild, interaction.channel, vc, station, interaction);
             }
 
         }
@@ -300,7 +265,7 @@ client.on('interactionCreate', async interaction => {
 });
 client.on('voiceStateUpdate', (_, newState) => {
     const vm = RadiYo.getVoiceManager(newState.guild);
-    if (newState.guild.id !== '748026840517574707' && vm && vm.getMembersInChannel() === 0) {
+    if (vm && vm.getMembersInChannel() === 0) {
         vm.sendLeavingMsg();
         logger.info(`Leaving channel in ${vm.GUILD.name} due to empty voice channel`);
         vm.leaveVoiceChannel();
@@ -324,19 +289,6 @@ if (process.env.NODE_ENV !== 'development') { RadiYo.downloadFeaturedStations();
 client.on('ready', async () => {
     console.log(generateDependencyReport());
     logger.info('Logged in!');
-    if (process.env.NODE_ENV !== 'development') {
-        const response = await fetch('https://top.gg/api/bots/895354013116153876/stats', {
-            method: 'post',
-            body: JSON.stringify({ 'server_count': client.guilds.cache.size }),
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': RadiYo.TOPGG_TOKEN
-            }
-        });
-        if (response.ok) {
-            console.log('Posted server count to Top.gg');
-        }
-    }
 });
 
 function exitHandler() {
@@ -347,26 +299,25 @@ function exitHandler() {
     client.destroy();
     process.exit();
 }
-
+/**
+ * Checks if user is in voice channel and if bot has perms to join it, sends msg to user if not.
+ * @param interaction
+ * @returns voice channel if in one, otherwise `false`
+ */
 async function checkVoiceChannel(interaction: CommandInteraction | SelectMenuInteraction): Promise<VoiceChannel | false> {
-    const gmaybe: GuildMember | undefined = await interaction.guild?.members.cache.get(interaction.user.id);
-    let gm: GuildMember;
-    if (gmaybe instanceof GuildMember) {
-        gm = gmaybe;
-        if (!gm.voice.channel) {
-            logger.info(`${interaction.user.username} is not in a voice channel, not starting stream.`);
-            interactionSend(interaction, 'You must be in a voice channel to play the radio!');
-            return false;
-        }
-        if (!gm.voice.channel.permissionsFor(RadiYo.getBotUser())?.has('CONNECT')) {
-            interactionSend(interaction, `I don't have permission to join ${gm.voice.channel}`);
-            return false;
-        }
-        if (gm.voice.channel instanceof VoiceChannel) {
+    const gm: GuildMember | undefined = await interaction.guild?.members.cache.get(interaction.user.id);
+    if (gm instanceof GuildMember) {
+        if (gm.voice.channel && gm.voice.channel instanceof VoiceChannel) {
+            if (!gm.voice.channel.permissionsFor(RadiYo.getBotUser())?.has('CONNECT')) {
+                interactionSend(interaction, `I don't have permission to join ${gm.voice.channel}`);
+                return false;
+            }
             return gm.voice.channel;
         }
         else {
+            logger.info(`${interaction.user.username} is not in a voice channel, not starting stream.`);
             interactionSend(interaction, 'You must be in a voice channel to play the radio!');
+            return false;
         }
     }
     return false;
@@ -419,7 +370,24 @@ function adminCenter(interaction: CommandInteraction) {
     interaction.followUp(radioPlayStatus);
     interaction.followUp(voiceManagerStatus);
 }
-
+async function createVoiceManager(
+    guild: Guild,
+    channel: TextBasedChannels,
+    vc: VoiceChannel,
+    station: Station,
+    interaction: CommandInteraction | ButtonInteraction | SelectMenuInteraction
+): Promise<VoiceManager> {
+    const vm = await RadiYo.createVoiceManager(guild, channel, vc, station);
+    if (!checkIfHaveWritePerm(interaction)) {
+        logger.info(`Cannot send notification in Guild ${guild}`);
+        interactionSend(
+            interaction,
+            "I don't have permission to send messages in this chanel so I won't be able to show the currently playing song. Ask an Admin to let me send messages!"
+        );
+    }
+    interactionSend(interaction, await vm.getCurrentStationEmbed());
+    return vm;
+}
 /* function getCmdOptions(interaction: CommandInteraction) : string {
     let string = '';
     const opts = interaction.options.data[0].options;
