@@ -38,7 +38,7 @@ export class VoiceManager {
     }
     public async attachPlayer(station: Station): Promise<boolean> {
         logger.info(`Started playing ${station.text} (${station.id}) in ${this.GUILD.name} (v:#${this.VOICE_CHANNEL.name}, n: #${(this.NOTIFICATION_CHANNEL as TextChannel).name}), ${this.getMembersInChannel()} people in channel`);
-        this.maxMembers = this.VOICE_CHANNEL.members.size;
+        this.maxMembers = this.VOICE_CHANNEL.members.size - 1;
         if (this.PLAYER_SUBSCRIPTION) this.playerUnsubscribe();
         try {
             this.RADIO_PLAYER = await RadiYo.getRadioPlayer(station);
@@ -74,9 +74,9 @@ export class VoiceManager {
         this.getVoiceConnection()?.destroy();
         const lastMsg = this.msg_fifo[this.msg_fifo.length - 1];
         if (lastMsg) {
-            const responseMessage = new MessageEmbed(lastMsg.embeds[0])
-                .setTitle('Previously Played');
-            lastMsg.edit({ embeds: [responseMessage], components: [] });
+            // const responseMessage = new MessageEmbed(lastMsg.embeds[0])
+            //     .setTitle('Previously Played');
+            lastMsg.edit({ components: [] });
         }
         RadiYo.deleteVoiceManager(this.GUILD.id);
     }
@@ -161,9 +161,9 @@ export class VoiceManager {
         }
         if (this.msg_fifo.length > 1) {
             const previousMsg = this.msg_fifo[this.msg_fifo.length - 2];
-            const responseMessage = new MessageEmbed(previousMsg.embeds[0])
-                .setTitle('Previously Played');
-            previousMsg.edit({ embeds: [responseMessage], components: [] });
+            /*const responseMessage = new MessageEmbed(previousMsg.embeds[0])
+                .setTitle('Previously Played'); */
+            previousMsg.edit({ components: [] });
         }
         if (this.msg_fifo.length == 7) {
             this.msg_fifo.shift()?.delete();
