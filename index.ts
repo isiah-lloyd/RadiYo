@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client, CommandInteraction, Guild, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, Options, SelectMenuInteraction, TextBasedChannels, TextChannel, VoiceChannel } from 'discord.js';
+import { ButtonInteraction, Client, CommandInteraction, Guild, GuildMember, Intents, Interaction, InteractionReplyOptions, MessageActionRow, MessageButton, Options, SelectMenuInteraction, TextBasedChannel, TextChannel, VoiceChannel } from 'discord.js';
 import { ActivityTypes } from 'discord.js/typings/enums';
 import 'dotenv/config';
 import { RadioPlayer } from './RadioPlayer';
@@ -372,7 +372,7 @@ function adminCenter(interaction: CommandInteraction) {
 }
 async function createVoiceManager(
     guild: Guild,
-    channel: TextBasedChannels,
+    channel: TextBasedChannel,
     vc: VoiceChannel,
     station: Station,
     interaction: CommandInteraction | ButtonInteraction | SelectMenuInteraction

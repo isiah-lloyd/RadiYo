@@ -1,5 +1,5 @@
 import { DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, PlayerSubscription, VoiceConnection } from '@discordjs/voice';
-import { EmbedFieldData, Guild, InteractionReplyOptions, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannels, TextChannel, User, VoiceChannel } from 'discord.js';
+import { EmbedFieldData, Guild, InteractionReplyOptions, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannel, TextChannel, User, VoiceChannel } from 'discord.js';
 import { decode as htmlDecode } from 'html-entities';
 import { RadioPlayer } from './RadioPlayer';
 import RadiYo from './RadiYo';
@@ -8,7 +8,7 @@ import logger from './util/logger';
 
 export class VoiceManager {
     GUILD: Guild;
-    NOTIFICATION_CHANNEL: TextBasedChannels;
+    NOTIFICATION_CHANNEL: TextBasedChannel;
     VOICE_CHANNEL: VoiceChannel;
     STATION: Station = {} as Station;
     private PLAYER_SUBSCRIPTION: PlayerSubscription | null = null;
@@ -18,7 +18,7 @@ export class VoiceManager {
     private last_msg: MessageEmbed | null = null;
     private timeStarted = Date.now();
     public maxMembers = 0;
-    constructor(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, _station: Station) {
+    constructor(guild: Guild, notificationChannel: TextBasedChannel, voiceChannel: VoiceChannel, _station: Station) {
         this.GUILD = guild;
         this.NOTIFICATION_CHANNEL = notificationChannel;
         this.VOICE_CHANNEL = voiceChannel;
@@ -29,10 +29,22 @@ export class VoiceManager {
             logger.debug('No voice channel to join');
         }
         else {
-            joinVoiceChannel({
+            let connection = joinVoiceChannel({
                 channelId: this.VOICE_CHANNEL.id,
                 guildId: this.GUILD.id,
                 adapterCreator: this.GUILD.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator
+            });
+            connection.on('stateChange', (oldState, newState) => {
+                const oldNetworking = Reflect.get(oldState, 'networking');
+                const newNetworking = Reflect.get(newState, 'networking');
+
+                const networkStateChangeHandler = (_: any, newNetworkState: any) => {
+                    const newUdp = Reflect.get(newNetworkState, 'udp');
+                    clearInterval(newUdp?.keepAliveInterval);
+                }
+
+                oldNetworking?.off('stateChange', networkStateChangeHandler);
+                newNetworking?.on('stateChange', networkStateChangeHandler);
             });
         }
     }

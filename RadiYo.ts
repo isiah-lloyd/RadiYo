@@ -1,4 +1,4 @@
-import { Client, ClientUser, Guild, MessageActionRow, MessageEmbed, MessageSelectMenu, MessageSelectOptionData, TextBasedChannels, VoiceChannel } from 'discord.js';
+import { Client, ClientUser, Guild, MessageActionRow, MessageEmbed, MessageSelectMenu, MessageSelectOptionData, TextBasedChannel, VoiceChannel } from 'discord.js';
 import 'dotenv/config';
 import featuredStationsJSON from './featured_stations.json';
 import { RadioPlayer } from './RadioPlayer';
@@ -33,7 +33,7 @@ class RadiYo {
         const player = this.VOICE_MANAGERS.get(guild.id);
         if (player) return player; else return null;
     }
-    public async createVoiceManager(guild: Guild, notificationChannel: TextBasedChannels, voiceChannel: VoiceChannel, station: Station): Promise<VoiceManager> {
+    public async createVoiceManager(guild: Guild, notificationChannel: TextBasedChannel, voiceChannel: VoiceChannel, station: Station): Promise<VoiceManager> {
         const rs = this.getVoiceManager(guild);
         if (rs) {
             if (voiceChannel.id !== rs.VOICE_CHANNEL.id || notificationChannel.id !== rs.NOTIFICATION_CHANNEL.id) {
