@@ -29,22 +29,10 @@ export class VoiceManager {
             logger.debug('No voice channel to join');
         }
         else {
-            let connection = joinVoiceChannel({
+            joinVoiceChannel({
                 channelId: this.VOICE_CHANNEL.id,
                 guildId: this.GUILD.id,
                 adapterCreator: this.GUILD.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator
-            });
-            connection.on('stateChange', (oldState, newState) => {
-                const oldNetworking = Reflect.get(oldState, 'networking');
-                const newNetworking = Reflect.get(newState, 'networking');
-
-                const networkStateChangeHandler = (_: any, newNetworkState: any) => {
-                    const newUdp = Reflect.get(newNetworkState, 'udp');
-                    clearInterval(newUdp?.keepAliveInterval);
-                }
-
-                oldNetworking?.off('stateChange', networkStateChangeHandler);
-                newNetworking?.on('stateChange', networkStateChangeHandler);
             });
         }
     }

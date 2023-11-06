@@ -78,16 +78,6 @@ export class RadioPlayer extends events.EventEmitter {
             logger.info('Stream went to idle from playing with > 0 subscribers, restarting stream.');
             this.play(this.CURRENT_STATION);
         }
-        const oldNetworking = Reflect.get(oldState, 'networking');
-        const newNetworking = Reflect.get(newState, 'networking');
-
-        const networkStateChangeHandler = (_oldNetworkState: any, newNetworkState: any) => {
-            const newUdp = Reflect.get(newNetworkState, 'udp');
-            clearInterval(newUdp?.keepAliveInterval);
-        }
-
-        oldNetworking?.off('stateChange', networkStateChangeHandler);
-        newNetworking?.on('stateChange', networkStateChangeHandler);
     }
     private async getAlbumArt(search: NowPlaying): Promise<NowPlaying> {
         const searchString: string = encodeURIComponent(`${search.artist} ${search.title}`);
